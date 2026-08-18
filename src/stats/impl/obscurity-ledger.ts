@@ -14,6 +14,7 @@
 import type { StatContext } from "../context.ts";
 import { mean, variance } from "../primitives.ts";
 import { decadeOf, releaseYearOf } from "../util.ts";
+import { none, strong, weak, type StatResult } from "../result.ts";
 
 /** Only films rated at or above this count as a "find". */
 export const FIND_MIN_RATING = 4.5;
@@ -65,7 +66,42 @@ export type ObscurityLedger = {
   notObscureEnough: number;
 };
 
-export function obscurityLedger(ctx: StatContext, limit = 10): ObscurityLedger {
+/** At or above this many qualifying finds, the stat has a real story. */
+export const STRONG_FIND_COUNT = 3;
+
+export function obscurityLedger(ctx: StatContext, limit = 10): StatResult<ObscurityLedger> {
+  const d = computeObscurityLedger(ctx, limit);
+
+  if (d.candidates === 0) {
+    return none(d, `You have not rated anything ${FIND_MIN_RATING}★ or above yet.`);
+  }
+
+  if (d.finds.length === 0) {
+    return none(
+      d,
+      `Every one of the ${d.candidates} films you rated ${FIND_MIN_RATING}★+ is well-known for ` +
+        `its era and language. You have no obscure favourites — what you love, everyone loves.`,
+    );
+  }
+
+  const top = d.finds[0]!;
+  if (d.finds.length >= STRONG_FIND_COUNT) {
+    return strong(
+      d,
+      `${d.finds.length} of your favourites are films almost nobody has voted on. The deepest cut ` +
+        `is ${top.name}, with ${top.voteCount} votes — roughly a ${Math.round(10 ** top.logGap)}x ` +
+        `shortfall against comparable films you watch.`,
+    );
+  }
+
+  return weak(
+    d,
+    `One genuine deep cut: ${top.name}, at ${top.voteCount} votes. The rest of what you rate ` +
+      `highly is well-travelled.`,
+  );
+}
+
+function computeObscurityLedger(ctx: StatContext, limit = 10): ObscurityLedger {
   // Cohorts over ALL rated films, not just the highly-rated ones: the reference
   // distribution should describe the user's whole library.
   const cohortKey = (decade: number | null, lang: string) => `${decade ?? "unknown"}|${lang || "??"}`;

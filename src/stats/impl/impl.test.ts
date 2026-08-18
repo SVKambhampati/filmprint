@@ -65,7 +65,7 @@ test("percentileRanks averages ties instead of inventing an order", () => {
 test("scale collapse: the CI contains the estimate at both boundaries", () => {
   // Single value: entropy is 0, the floor. Uniform: entropy is log2(10), the ceiling.
   const onlyThrees = Array.from({ length: 100 }, (_, i) => ({ id: `f${i}`, name: `F${i}`, rating: 3 }));
-  const floor = scaleCollapse(ctxOf(onlyThrees));
+  const floor = scaleCollapse(ctxOf(onlyThrees)).data;
   assert.ok(floor.ci.lo <= floor.bitsUsed && floor.bitsUsed <= floor.ci.hi);
   assert.ok(floor.bitsUsed < 0.1, "one value used means ~0 bits");
 });
@@ -74,7 +74,7 @@ test("scale collapse: a user on two values reads as collapsed", () => {
   const films = Array.from({ length: 200 }, (_, i) => ({
     id: `f${i}`, name: `F${i}`, rating: i % 2 === 0 ? 3.5 : 4,
   }));
-  const s = scaleCollapse(ctxOf(films));
+  const s = scaleCollapse(ctxOf(films)).data;
   assert.ok(s.bitsUsed < 1.2, `expected ~1 bit, got ${s.bitsUsed}`);
   assert.equal(s.maxBits, MAX_BITS);
   assert.equal(s.unused.length, 8, "eight of ten values never used");
@@ -86,7 +86,7 @@ test("scale collapse: a user using the whole scale does not read as collapsed", 
   const films = Array.from({ length: 500 }, (_, i) => ({
     id: `f${i}`, name: `F${i}`, rating: buckets[i % 10]!,
   }));
-  const s = scaleCollapse(ctxOf(films));
+  const s = scaleCollapse(ctxOf(films)).data;
   assert.ok(s.bitsUsed > 3.2, `expected near ${MAX_BITS}, got ${s.bitsUsed}`);
   assert.equal(s.unused.length, 0);
   // At the entropy ceiling the bootstrap interval is one-sided, so the contract
@@ -103,7 +103,7 @@ test("harshness split: a harsh conformist is identified as such", () => {
       rating: Math.max(0.5, Math.round((expectedRating(voteAvg) - 1.0) * 2) / 2),
     };
   });
-  const h = harshnessSplit(ctxOf(films));
+  const h = harshnessSplit(ctxOf(films)).data;
   assert.ok(h.level.offset < -0.5, `should read harsh, got ${h.level.offset}`);
   assert.ok(h.rankAgreement > 0.7, `ordering should match the crowd, got ${h.rankAgreement}`);
   assert.equal(h.quadrant, "harsh conformist");
@@ -114,7 +114,7 @@ test("harshness split: the quadrant is withheld below the minimum sample", () =>
   const films = Array.from({ length: QUADRANT_MIN_N - 1 }, (_, i) => ({
     id: `f${i}`, name: `F${i}`, rating: 3, voteAvg: 7, votes: 3000,
   }));
-  const h = harshnessSplit(ctxOf(films));
+  const h = harshnessSplit(ctxOf(films)).data;
   assert.equal(h.quadrant, null, "no quadrant claim on thin data");
   assert.equal(h.quadrantTrustworthy, false);
   assert.ok(h.disagreements.length > 0, "but the disagreement list is still fun");
@@ -125,7 +125,7 @@ test("harshness split: low-vote films are excluded from the comparison", () => {
     ...Array.from({ length: 70 }, (_, i) => ({ id: `f${i}`, name: `F${i}`, rating: 3.5, voteAvg: 7, votes: 5000 })),
     { id: "obscure", name: "Obscure", rating: 5, voteAvg: 9.9, votes: 3 },
   ];
-  const h = harshnessSplit(ctxOf(films));
+  const h = harshnessSplit(ctxOf(films)).data;
   assert.equal(h.n, 70, "the 3-vote film must not manufacture disagreement");
   assert.ok(!h.disagreements.some((d) => d.name === "Obscure"));
 });
@@ -136,7 +136,7 @@ test("taste crystallization: a real peak is found", () => {
     ...Array.from({ length: 40 }, (_, i) => ({ id: `b${i}`, name: `B${i}`, year: 1997, rating: 2.5 })),
     ...Array.from({ length: 40 }, (_, i) => ({ id: `c${i}`, name: `C${i}`, year: 2017, rating: 3.0 })),
   ];
-  const t = tasteCrystallization(ctxOf(films));
+  const t = tasteCrystallization(ctxOf(films)).data;
   assert.ok(t.peak, "a 2-star gap must produce a peak");
   // 40 films in each of three years clears BIN_SELECT_MIN_MEDIAN, so 1-year bins
   // are justified here and the peak is the year itself.
@@ -149,7 +149,7 @@ test("taste crystallization: a flat profile refuses to invent a peak", () => {
   const films = Array.from({ length: 150 }, (_, i) => ({
     id: `f${i}`, name: `F${i}`, year: 1990 + (i % 30), rating: 3.5,
   }));
-  const t = tasteCrystallization(ctxOf(films));
+  const t = tasteCrystallization(ctxOf(films)).data;
   assert.equal(t.peak, null);
   assert.ok(t.noPeakReason?.includes("inside the noise"), t.noPeakReason ?? "no reason given");
 });
@@ -158,7 +158,7 @@ test("taste crystallization: thin bins cannot become peaks", () => {
   const films = Array.from({ length: PEAK_MIN_BIN_N - 1 }, (_, i) => ({
     id: `f${i}`, name: `F${i}`, year: 1975, rating: 5,
   }));
-  const t = tasteCrystallization(ctxOf(films));
+  const t = tasteCrystallization(ctxOf(films)).data;
   assert.equal(t.peak, null, "a handful of 5s is not an era");
   assert.ok(t.noPeakReason?.includes("rated films"));
 });
@@ -173,7 +173,7 @@ test("obscurity ledger: cohort normalisation stops 'you watch old foreign films'
     id: `o${i}`, name: `Old ${i}`, year: 1975, lang: "ja", rating: 4.5,
     votes: i === 0 ? 12 : 400,
   }));
-  const led = obscurityLedger(ctxOf([...modern, ...old]));
+  const led = obscurityLedger(ctxOf([...modern, ...old])).data;
   const names = led.finds.map((f) => f.name);
   assert.ok(names.includes("Modern 0"), "the under-voted modern film should surface");
   assert.ok(names.includes("Old 0"), "the under-voted old film should surface");
@@ -186,14 +186,14 @@ test("obscurity ledger: only highly-rated films count as finds", () => {
   const films = Array.from({ length: 20 }, (_, i) => ({
     id: `f${i}`, name: `F${i}`, year: 2015, rating: i === 0 ? 4.5 : 2.0, votes: i === 0 ? 30 : 9000,
   }));
-  const led = obscurityLedger(ctxOf(films));
+  const led = obscurityLedger(ctxOf(films)).data;
   assert.equal(led.candidates, 1, "a badly-rated obscure film is not a find");
   assert.equal(led.finds[0]!.name, "F0");
 });
 
 test("obscurity ledger: a cohort too small to judge is counted, not guessed at", () => {
   const films = [{ id: "solo", name: "Solo", year: 1930, lang: "sv", rating: 5, votes: 5 }];
-  const led = obscurityLedger(ctxOf(films));
+  const led = obscurityLedger(ctxOf(films)).data;
   assert.equal(led.finds.length, 0);
   assert.equal(led.uncohorted, 1);
 });
@@ -208,7 +208,7 @@ test("comfort object: reports the most-rewatched film as a lower bound", () => {
   const c = comfortObject(ctxOf([
     { id: "salaarF", name: "Salaar", year: 2023, rating: 4.5, runtime: 175 },
     { id: "newF", name: "New Film", year: 2024, rating: 3.5, runtime: 95 },
-  ], { diary }));
+  ], { diary })).data;
 
   assert.equal(c.top!.name, "Salaar");
   assert.ok(c.top!.atLeastTimes >= 9, `expected a lower bound of 9+, got ${c.top!.atLeastTimes}`);
@@ -218,7 +218,7 @@ test("comfort object: reports the most-rewatched film as a lower bound", () => {
 test("comfort object: too few rewatches yields the top film but no profile", () => {
   const diary = ["Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date",
     `2026-01-15,Salaar,2023,${boxd("czv1")},4.5,Yes,,2026-01-14`].join("\n");
-  const c = comfortObject(ctxOf([{ id: "s", name: "Salaar", year: 2023, rating: 4.5 }], { diary }));
+  const c = comfortObject(ctxOf([{ id: "s", name: "Salaar", year: 2023, rating: 4.5 }], { diary })).data;
   assert.equal(c.top!.name, "Salaar");
   assert.equal(c.seeking, null, "one rewatch cannot support a profile comparison");
 });
@@ -236,7 +236,7 @@ test("abandoned discovery: loved once, never revisited", () => {
     { id: "c", name: "Good Two", rating: 4.5, tmdbId: 1002 },
     { id: "d", name: "Bad Film", rating: 2, tmdbId: 1003 },
   ];
-  const out = abandonedDiscovery(ctxOf(films, { crew }));
+  const out = abandonedDiscovery(ctxOf(films, { crew })).data;
   assert.equal(out.length, 1);
   assert.equal(out[0]!.director, "Loved Once");
   assert.equal(out[0]!.filmographySize, null, "honest about the un-enriched field");
@@ -244,12 +244,56 @@ test("abandoned discovery: loved once, never revisited", () => {
 
 test("every hero stat survives an empty library without throwing", () => {
   const ctx = ctxOf([]);
-  assert.equal(scaleCollapse(ctx).n, 0);
-  assert.equal(harshnessSplit(ctx).quadrant, null);
-  assert.equal(tasteCrystallization(ctx).peak, null);
-  assert.equal(comfortObject(ctx).top, null);
-  assert.equal(obscurityLedger(ctx).finds.length, 0);
-  assert.deepEqual(abandonedDiscovery(ctx), []);
+  assert.equal(scaleCollapse(ctx).data.n, 0);
+  assert.equal(harshnessSplit(ctx).data.quadrant, null);
+  assert.equal(tasteCrystallization(ctx).data.peak, null);
+  assert.equal(comfortObject(ctx).data.top, null);
+  assert.equal(obscurityLedger(ctx).data.finds.length, 0);
+  assert.deepEqual(abandonedDiscovery(ctx).data, []);
+});
+
+test("every stat produces a sentence, in both branches of the contract", () => {
+  const empty = ctxOf([]);
+  const full = ctxOf(Array.from({ length: 200 }, (_, i) => ({
+    id: `f${i}`, name: `F${i}`, rating: [3, 3.5, 4][i % 3]!, year: 2010 + (i % 5), votes: 4000,
+  })));
+
+  for (const stat of [scaleCollapse, harshnessSplit, tasteCrystallization, comfortObject, obscurityLedger, abandonedDiscovery]) {
+    for (const [label, ctx] of [["empty", empty], ["full", full]] as const) {
+      const r = stat(ctx);
+      const copy = r.finding === "none" ? r.emptyCopy : r.headline;
+      assert.ok(copy.length > 20, `${stat.name} on ${label} library produced no usable sentence`);
+      assert.ok(!copy.includes("undefined"), `${stat.name} on ${label}: "${copy}"`);
+      assert.ok(!copy.includes("NaN"), `${stat.name} on ${label}: "${copy}"`);
+      assert.ok(!copy.includes("null"), `${stat.name} on ${label}: "${copy}"`);
+    }
+  }
+});
+
+test("a null result is phrased as the finding it actually is", () => {
+  // Every 4.5 is a popular film: the ledger has nothing, and must say why.
+  const films = Array.from({ length: 20 }, (_, i) => ({
+    id: `f${i}`, name: `F${i}`, year: 2015, rating: 4.5, votes: 9000,
+  }));
+  const r = obscurityLedger(ctxOf(films));
+  assert.equal(r.finding, "none");
+  if (r.finding !== "none") return;
+  assert.ok(/no obscure favourites|everyone loves/i.test(r.emptyCopy), r.emptyCopy);
+});
+
+test("finding strength is self-assessed, not inferred from sample size", () => {
+  // A big library with a flat era profile: plenty of data, weak finding.
+  const flat = ctxOf(Array.from({ length: 400 }, (_, i) => ({
+    id: `f${i}`, name: `F${i}`, year: 1990 + (i % 20), rating: 3.5,
+  })));
+  assert.equal(tasteCrystallization(flat).finding, "weak", "no peak is a weak finding, not a strong one");
+
+  // Same size library, real peak.
+  const peaked = ctxOf([
+    ...Array.from({ length: 200 }, (_, i) => ({ id: `a${i}`, name: `A${i}`, year: 2007, rating: 5 })),
+    ...Array.from({ length: 200 }, (_, i) => ({ id: `b${i}`, name: `B${i}`, year: 1997, rating: 2 })),
+  ]);
+  assert.equal(tasteCrystallization(peaked).finding, "strong");
 });
 
 test("obscurity ledger refuses to call a well-voted film a find", () => {
@@ -257,7 +301,7 @@ test("obscurity ledger refuses to call a well-voted film a find", () => {
   const films = Array.from({ length: 20 }, (_, i) => ({
     id: `f${i}`, name: `F${i}`, year: 2015, rating: 4.5, votes: 8000 + i * 10,
   }));
-  const led = obscurityLedger(ctxOf(films));
+  const led = obscurityLedger(ctxOf(films)).data;
   assert.equal(led.finds.length, 0, "nothing here is obscure");
   assert.equal(led.notObscureEnough, 20, "and the stat says so instead of faking it");
 });
@@ -267,7 +311,7 @@ test("obscurity ledger surfaces only films below the qualifying threshold", () =
     ...Array.from({ length: 20 }, (_, i) => ({ id: `n${i}`, name: `Normal ${i}`, year: 2015, rating: 4.5, votes: 8000 })),
     { id: "rare", name: "Genuinely Rare", year: 2015, rating: 4.5, votes: 20 },
   ];
-  const led = obscurityLedger(ctxOf(films));
+  const led = obscurityLedger(ctxOf(films)).data;
   assert.equal(led.finds.length, 1);
   assert.equal(led.finds[0]!.name, "Genuinely Rare");
   assert.ok(led.finds[0]!.cohortZ < -0.5);
@@ -295,7 +339,7 @@ test("a co-directed film appears once, with co-directors listed", () => {
       { id: 3, name: "Director C", job: "Director" },
     ]],
   ]);
-  const out = abandonedDiscovery(ctxOf([{ id: "a", name: "Spider-Verse", rating: 4.5, tmdbId: 1000 }], { crew }));
+  const out = abandonedDiscovery(ctxOf([{ id: "a", name: "Spider-Verse", rating: 4.5, tmdbId: 1000 }], { crew })).data;
   assert.equal(out.length, 1, "one film, one entry");
   assert.equal(out[0]!.coDirectors?.length, 2, "the other two are listed as co-directors");
 });

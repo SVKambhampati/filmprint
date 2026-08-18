@@ -26,7 +26,9 @@ Early. What exists today is the foundation, not the site:
 | Dataset generator CLI | done — **98.6% match rate on a real 1,889-film export** |
 | Live matcher check (`npm run check:matcher`) | 22/22 against real TMDB |
 | Stat registry + page selector | done, tested |
-| Individual stats | not started |
+| The six hero stats | done, tested |
+| Page composition (`composePage`) | done, tested |
+| Remaining 13 declared stats | not started |
 | Web UI | not started |
 
 ## Getting started
@@ -49,7 +51,7 @@ you match 70% of a real library then every chart downstream is wrong and no
 amount of design fixes it.
 
 ```bash
-npm test               # 69 tests, no network
+npm test               # 117 tests, no network
 npm run typecheck
 npm run check:matcher  # 22 live cases against real TMDB (~23 API calls)
 npm run build:dataset -- --report    # store contents + top unmatched, no network
@@ -108,6 +110,20 @@ retrofitting "am I allowed to render?" into 28 implementations is miserable.
 non-commercial use with attribution. Anything "created for the primary purpose of
 revenue generation" needs a commercial licence negotiated with them — so adding
 a paid tier is a conversation with TMDB, not a Stripe integration.
+
+**Demote, never hide.** A stat that clears its sample gate can still have
+nothing to say — two of six did on the export used to build this. A null result
+loses its hero slot, not its place on the page, because "nothing you rate highly
+is obscure" is a real observation about a person and suppressing it throws
+information away. Every stat therefore returns a `StatResult` carrying a
+mandatory sentence in *both* branches of the union, so a blank card cannot ship
+by accident.
+
+**A stat may correct its own framing.** The registry names each stat for its
+expected conclusion ("Your scale has collapsed"), which is wrong whenever the
+finding inverts. A stat can override its title and tone for a given user, or the
+card contradicts its own copy — this was a real bug, caught by a test asserting
+no title claims collapse over copy denying it.
 
 **No stat ships without its hazard handled.** Shrinkage on every group mean,
 bias correction on every entropy, a permutation test on anything that reports the

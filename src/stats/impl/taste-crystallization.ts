@@ -13,6 +13,7 @@ import type { StatContext } from "../context.ts";
 import { shrink } from "../primitives.ts";
 import { SHRINK_K } from "../../hygiene/thresholds.ts";
 import { releaseYearOf } from "../util.ts";
+import { none, strong, weak, type StatResult } from "../result.ts";
 
 /**
  * Candidate bin widths, narrowest first.
@@ -85,7 +86,34 @@ export function chooseBinWidth(years: readonly number[]): number {
   return BIN_WIDTHS[BIN_WIDTHS.length - 1]!;
 }
 
-export function tasteCrystallization(ctx: StatContext): TasteCrystallization {
+export function tasteCrystallization(ctx: StatContext): StatResult<TasteCrystallization> {
+  const d = computeTasteCrystallization(ctx);
+
+  if (d.bins.length === 0) {
+    return none(d, "None of your rated films have a release date we could resolve.");
+  }
+
+  if (d.peak) {
+    const span = d.peak.width === 1 ? `${d.peak.year}` : `${d.peak.year}–${d.peak.year + d.peak.width - 1}`;
+    return strong(
+      d,
+      `Your taste peaks with films from ${span}, at ${d.peak.shrunkMean.toFixed(2)}★ across ` +
+        `${d.peak.n} films. Worth remembering this is the era you CHOSE to log and rate highly, ` +
+        `not the era that made better films.`,
+    );
+  }
+
+  // No peak is a finding, not a failure: it says the user rates evenly across eras.
+  return weak(
+    d,
+    `You have no favourite era. ${d.noPeakReason ?? "No era stands out."} Your taste is spread ` +
+      `evenly across decades, which is rarer than having a favourite — most people's ratings ` +
+      `betray one.`,
+    { title: "Your taste has no era" },
+  );
+}
+
+function computeTasteCrystallization(ctx: StatContext): TasteCrystallization {
   const width = chooseBinWidth(ratedYears(ctx));
 
   const buckets = new Map<number, { ratings: number[]; films: { name: string; rating: number }[] }>();
@@ -121,7 +149,7 @@ export function tasteCrystallization(ctx: StatContext): TasteCrystallization {
   let noPeakReason: string | null = null;
 
   if (eligible.length === 0) {
-    noPeakReason = `no era has ${PEAK_MIN_BIN_N}+ rated films yet`;
+    noPeakReason = `No era has ${PEAK_MIN_BIN_N} or more rated films yet.`;
   } else if (eligible.length === 1) {
     const only = eligible[0]!;
     peak = { year: only.year, width, shrunkMean: only.shrunkMean, n: only.n, topFilms: topFilmsIn(ctx, only.year, width) };
@@ -131,8 +159,8 @@ export function tasteCrystallization(ctx: StatContext): TasteCrystallization {
       peak = { year: best.year, width, shrunkMean: best.shrunkMean, n: best.n, topFilms: topFilmsIn(ctx, best.year, width) };
     } else {
       noPeakReason =
-        `your best era beats the runner-up by only ${(best.shrunkMean - second.shrunkMean).toFixed(2)} stars, ` +
-        `which is inside the noise — your taste is evenly spread`;
+        `Your best era beats the runner-up by only ${(best.shrunkMean - second.shrunkMean).toFixed(2)} ` +
+        `stars, which is inside the noise.`;
     }
   }
 

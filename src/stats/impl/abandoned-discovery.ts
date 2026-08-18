@@ -11,6 +11,7 @@
  * the top ~20 candidates is cheap and worth doing before this ships.
  */
 import type { StatContext } from "../context.ts";
+import { none, strong, weak, type StatResult } from "../result.ts";
 
 export const LOVED_RATING = 4.5;
 
@@ -29,7 +30,37 @@ export type Abandoned = {
   posterPath: string | null;
 };
 
-export function abandonedDiscovery(ctx: StatContext, limit = 10): Abandoned[] {
+/** At or above this many, the stat has a real story rather than an anecdote. */
+export const STRONG_ABANDONED_COUNT = 3;
+
+export function abandonedDiscovery(ctx: StatContext, limit = 10): StatResult<Abandoned[]> {
+  const d = computeAbandonedDiscovery(ctx, limit);
+
+  if (d.length === 0) {
+    return none(
+      d,
+      "You have no abandoned discoveries. Every director you loved, you went back to — which " +
+        "means you follow people, not just films.",
+    );
+  }
+
+  const first = d[0]!;
+  if (d.length >= STRONG_ABANDONED_COUNT) {
+    return strong(
+      d,
+      `${d.length} directors made a film you rated ${first.rating}★ and you never watched another. ` +
+        `You gave ${first.film} ${first.rating}★ and stopped there.`,
+    );
+  }
+
+  return weak(
+    d,
+    `One loose thread: you rated ${first.film} ${first.rating}★ and never watched anything else by ` +
+      `${first.director}.`,
+  );
+}
+
+function computeAbandonedDiscovery(ctx: StatContext, limit = 10): Abandoned[] {
   // Every director in the user's rated library, with the films they saw.
   const byDirector = new Map<number, { name: string; films: { name: string; rating: number; posterPath: string | null }[] }>();
 

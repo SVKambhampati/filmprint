@@ -5,6 +5,7 @@
  */
 import type { StatContext } from "../context.ts";
 import { entropyBits, bootstrapCI, type Interval } from "../primitives.ts";
+import { none, strong, weak, type StatResult } from "../result.ts";
 
 /** Letterboxd's ten possible values. */
 export const RATING_BUCKETS = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5] as const;
@@ -25,7 +26,43 @@ export type ScaleCollapse = {
   n: number;
 };
 
-export function scaleCollapse(ctx: StatContext): ScaleCollapse {
+/** A scale is "collapsed" when this much of it goes unused. */
+export const COLLAPSE_BITS_LOST = 0.8;
+
+export function scaleCollapse(ctx: StatContext): StatResult<ScaleCollapse> {
+  const d = computeScaleCollapse(ctx);
+
+  if (d.n === 0) {
+    return none(d, "You haven't rated anything yet, so there's no scale to look at.");
+  }
+
+  const bandPct = Math.round(d.modalBandShare * 100);
+  const lost = d.maxBits - d.bitsUsed;
+
+  if (lost >= COLLAPSE_BITS_LOST) {
+    const unusedNote =
+      d.unused.length > 0
+        ? ` You have never once given ${d.unused.map((u) => `${u}★`).join(", ")}.`
+        : "";
+    return strong(
+      d,
+      `You have a 10-point scale. You are using ${d.bitsUsed.toFixed(1)} bits of it — ` +
+        `${bandPct}% of your ratings land within half a star of ${d.mode}★.${unusedNote}`,
+    );
+  }
+
+  // The registry names this stat for its expected conclusion. When the user does
+  // NOT have a collapsed scale, the title and tone both have to be corrected, or
+  // the card contradicts itself.
+  return weak(
+    d,
+    `You actually use your scale: ${d.bitsUsed.toFixed(1)} of ${d.maxBits.toFixed(1)} bits, ` +
+      `with only ${bandPct}% bunched around ${d.mode}★. Most people are far more compressed.`,
+    { title: "You use your whole scale", tone: "flattering" },
+  );
+}
+
+function computeScaleCollapse(ctx: StatContext): ScaleCollapse {
   const ratings = ctx.rated.map((r) => r.rating);
   const counts = RATING_BUCKETS.map((b) => ratings.filter((r) => r === b).length);
 

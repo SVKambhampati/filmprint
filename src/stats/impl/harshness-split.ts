@@ -17,6 +17,7 @@ import type { StatContext } from "../context.ts";
 import { kendallTauB } from "../primitives.ts";
 import { harshness, MIN_VOTE_COUNT, type Harshness } from "../calibration.ts";
 import { percentileRanks } from "../util.ts";
+import { none, strong, weak, type StatResult } from "../result.ts";
 
 export type Quadrant =
   | "harsh conformist"
@@ -50,7 +51,35 @@ export const QUADRANT_MIN_N = 60;
 /** tau-b at or above this counts as agreeing with the crowd's ordering. */
 export const CONFORMIST_TAU = 0.3;
 
-export function harshnessSplit(ctx: StatContext): HarshnessSplit {
+export function harshnessSplit(ctx: StatContext): StatResult<HarshnessSplit> {
+  const d = computeHarshnessSplit(ctx);
+
+  if (d.n === 0) {
+    return none(
+      d,
+      "None of your films have enough crowd votes to compare against — your taste runs " +
+        "too far outside TMDB's well-trodden catalogue for this one to say anything honest.",
+    );
+  }
+
+  if (d.quadrant) {
+    const dir = d.level.offset < 0 ? "below" : "above";
+    const conform = d.rankAgreement >= CONFORMIST_TAU ? "in much the same order the crowd does" : "in your own order";
+    return strong(
+      d,
+      `You are a ${d.quadrant}. You rate ${Math.abs(d.level.offset).toFixed(2)} stars ${dir} ` +
+        `expectation, and you rank films ${conform}.`,
+    );
+  }
+
+  return weak(
+    d,
+    `Only ${d.n} of your films have enough crowd votes to compare, which is too few to call ` +
+      `you harsh or contrarian — but here are the films you disagree with everyone about.`,
+  );
+}
+
+function computeHarshnessSplit(ctx: StatContext): HarshnessSplit {
   const usable = ctx.rated.filter((r) => r.film.voteCount >= MIN_VOTE_COUNT && r.film.voteAverage > 0);
 
   const level = harshness(

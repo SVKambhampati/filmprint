@@ -12,6 +12,7 @@
 import type { StatContext } from "../context.ts";
 import { median } from "../primitives.ts";
 import { releaseYearOf } from "../util.ts";
+import { none, strong, weak, type StatResult } from "../result.ts";
 
 /** Below this many rewatch entries, show the top film only, no profile. */
 export const PROFILE_MIN_REWATCHES = 10;
@@ -32,7 +33,42 @@ export type ComfortObject = {
   rewatchEntries: number;
 };
 
-export function comfortObject(ctx: StatContext): ComfortObject {
+export function comfortObject(ctx: StatContext): StatResult<ComfortObject> {
+  const d = computeComfortObject(ctx);
+
+  if (!d.top) {
+    return none(
+      d,
+      "You have never logged a rewatch. Either you always move forward, or you rewatch " +
+        "without telling Letterboxd about it.",
+    );
+  }
+
+  if (d.seeking && d.returning && d.seeking.medianReleaseYear && d.returning.medianReleaseYear) {
+    const gap = d.seeking.medianReleaseYear - d.returning.medianReleaseYear;
+    const direction =
+      gap > 3
+        ? `you seek out ${gap} years newer than you return to`
+        : gap < -3
+          ? `you return to films newer than the ones you seek out`
+          : `your rewatches and first watches come from the same era`;
+    return strong(
+      d,
+      `Your comfort object is ${d.top.name} — at least ${d.top.atLeastTimes} times. ` +
+        `First watches average ${d.seeking.medianReleaseYear} and ${d.seeking.medianRuntime}m; ` +
+        `rewatches average ${d.returning.medianReleaseYear} and ${d.returning.medianRuntime}m, so ${direction}.`,
+    );
+  }
+
+  return weak(
+    d,
+    `Your comfort object is ${d.top.name} — at least ${d.top.atLeastTimes} times. ` +
+      `With only ${d.rewatchEntries} logged rewatches there is not enough to compare what you ` +
+      `return to against what you seek out.`,
+  );
+}
+
+function computeComfortObject(ctx: StatContext): ComfortObject {
   const diary = ctx.summary.diary;
   const rewatches = diary.filter((e) => e.rewatch);
 
