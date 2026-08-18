@@ -23,7 +23,7 @@ Early. What exists today is the foundation, not the site:
 | Crowd calibration (harshness anchor) | done, **provisional constants** |
 | TMDB schema, client, matcher | done, tested |
 | SQLite store | done, tested |
-| Dataset generator CLI | done, needs a real export to validate match rate |
+| Dataset generator CLI | done — **98.6% match rate on a real 1,889-film export** |
 | Live matcher check (`npm run check:matcher`) | 22/22 against real TMDB |
 | Individual stats | not started |
 | Web UI | not started |
@@ -48,7 +48,7 @@ you match 70% of a real library then every chart downstream is wrong and no
 amount of design fixes it.
 
 ```bash
-npm test               # 62 tests, no network
+npm test               # 69 tests, no network
 npm run typecheck
 npm run check:matcher  # 22 live cases against real TMDB (~23 API calls)
 npm run build:dataset -- --report    # store contents + top unmatched, no network
@@ -74,10 +74,24 @@ redistribution. A thin lookup endpoint reads from SQLite instead. The browser
 sends film slugs and gets metadata back — it never sends ratings or dates, so
 "we never see what you thought of anything" stays true.
 
-**Matching is solved once per film, never once per user.** `slug_map` is the
-compounding asset: user #1 pays the fuzzy-match cost, user #500 gets an exact
-hit. Every miss is recorded in `unmatched` with a `seen_count`, so hand-fixing
+**Matching is solved once per film, never once per user.** `film_map` is the
+compounding asset, and the effect is measured, not theoretical: the first run
+over 1,889 films took **187s and 3,764 API calls**; the second took **2s and 55
+calls**. Every miss is recorded in `unmatched` with a `seen_count`, so hand-fixing
 the top of that list has leverage across everyone.
+
+**Two id spaces, and confusing them breaks every join.** `ratings.csv`,
+`watched.csv` and `watchlist.csv` carry Letterboxd FILM ids. `diary.csv` carries
+DIARY ENTRY ids, which share zero overlap. A diary row joins to a film on
+`(Name, Year)`, not on its URI. This is the single easiest thing to get wrong
+here — the first live run matched nothing because of it.
+
+**Rating-based and date-based stats have wildly different sample sizes.** Users
+rate and mark watched without logging diary entries. On the export used to build
+this the ratio was 18.7x: 1,868 rated films against 100 diary entries, of which
+only 79 were clean-dated. Taste stats had thousands of observations; every
+temporal stat failed its gate. Plan for the hero page to lean on rating-based
+stats, and treat the diary-based ones as a bonus for heavy loggers.
 
 **Non-commercial, and that is load-bearing.** TMDB's API is free for
 non-commercial use with attribution. Anything "created for the primary purpose of
@@ -94,9 +108,12 @@ A misleading stat costs more trust than a missing one earns.
 - **`src/stats/calibration.ts` constants are provisional.** They are seeded from
   population means, not fitted. Until refit, the harshness axis is directional
   only — report the quadrant, never a precise number of stars.
-- **TV detection is untested against a real export.** We drop anything whose
-  Letterboxd URI is not under `/film/`, which is a guess about how TV entries are
-  serialised. Verify against an export containing TV before trusting the count.
+- **TV is detected by TMDB match failure, not by anything in the export.** This
+  was verified, not assumed: on a real 1,889-film export every one of the 27
+  unmatched entries was a TV series (Chernobyl, Squid Game, Loki, WandaVision,
+  Baby Reindeer...). boxd.it URIs carry no film-vs-TV signal, so the unmatched
+  bucket *is* the TV bucket. The UI must say "we matched 1,862 of 1,889 — the
+  rest are TV, which we don't cover" rather than implying a matching failure.
 - **The watchlist graveyard is biased and unfixably so.** Films added and then
   deleted without watching appear nowhere in the export, so anyone who purges
   their watchlist gets an inflated conversion rate. This has to be said in the

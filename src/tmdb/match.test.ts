@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  slugFromUri,
+  letterboxdId,
   normalizeTitle,
   diceSimilarity,
   scoreCandidate,
@@ -18,12 +18,17 @@ const cand = (p: Partial<Candidate> & { id: number }): Candidate => ({
   ...p,
 });
 
-test("slugFromUri extracts film slugs and rejects non-film URIs", () => {
-  assert.equal(slugFromUri("https://letterboxd.com/film/parasite/"), "parasite");
-  assert.equal(slugFromUri("https://boxd.it/hTha"), null, "short links carry no slug");
-  // TV entries are not under /film/ and must not silently become films.
-  assert.equal(slugFromUri("https://letterboxd.com/tv/severance/"), null);
-  assert.equal(slugFromUri(""), null);
+test("letterboxdId reads boxd.it short links, which is what real exports use", () => {
+  // Real exports use short links exclusively. An earlier version of this test
+  // asserted these return null, which is why the first live run matched nothing.
+  assert.equal(letterboxdId("https://boxd.it/jUk4"), "jUk4");
+  assert.equal(letterboxdId("https://boxd.it/czvlfp"), "czvlfp");
+  // Case is preserved: boxd.it ids are case-sensitive.
+  assert.equal(letterboxdId("https://boxd.it/wUow"), "wUow");
+  // The long form is still accepted for older exports.
+  assert.equal(letterboxdId("https://letterboxd.com/film/parasite/"), "parasite");
+  assert.equal(letterboxdId(""), null);
+  assert.equal(letterboxdId("not a url"), null);
 });
 
 test("normalizeTitle handles diacritics, articles, punctuation, ampersands", () => {
@@ -141,4 +146,35 @@ test("an exact title with no candidate release date is accepted, not rescued", (
   const out = chooseMatch("Untitled Thing", 2020, c);
   assert.equal(out.tmdbId, 1);
   assert.ok(out.confidence >= ACCEPT_THRESHOLD, `expected acceptance, got ${out.confidence}`);
+});
+
+test("a short Letterboxd title matches TMDB's subtitled one", () => {
+  // Real misses from a live run: Letterboxd carries the short theatrical title.
+  const glass = [cand({ id: 661374, title: "Glass Onion: A Knives Out Mystery", release_date: "2022-11-23", vote_count: 5000 })];
+  const out = chooseMatch("Glass Onion", 2022, glass);
+  assert.equal(out.tmdbId, 661374);
+
+  const wake = [cand({ id: 1, title: "Wake Up Dead Man: A Knives Out Mystery", release_date: "2025-12-12", vote_count: 100 })];
+  assert.equal(chooseMatch("Wake Up Dead Man", 2025, wake).tmdbId, 1);
+});
+
+test("an exact title still outranks a subtitled sibling", () => {
+  const candidates = [
+    cand({ id: 438631, title: "Dune", release_date: "2021-09-15", vote_count: 11000 }),
+    cand({ id: 693134, title: "Dune: Part Two", release_date: "2024-02-27", vote_count: 6000 }),
+  ];
+  assert.equal(chooseMatch("Dune", 2021, candidates).tmdbId, 438631);
+  assert.equal(chooseMatch("Dune: Part Two", 2024, candidates).tmdbId, 693134);
+});
+
+test("a prefix match with the wrong year is still refused", () => {
+  // Only the sequel exists as a candidate, and the year is 3 years off.
+  const c = [cand({ id: 693134, title: "Dune: Part Two", release_date: "2024-02-27", vote_count: 6000 })];
+  assert.equal(chooseMatch("Dune", 2021, c).tmdbId, null);
+});
+
+test("prefix scoring does not fire on short or non-boundary matches", () => {
+  // "her" must not prefix-match "hereditary" -- no word boundary, too short.
+  const c = [cand({ id: 1, title: "Hereditary", release_date: "2018-06-08", vote_count: 8000 })];
+  assert.equal(chooseMatch("Her", 2013, c).tmdbId, null);
 });

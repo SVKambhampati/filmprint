@@ -1,7 +1,7 @@
 /**
  * Slug resolution pipeline: Letterboxd slug -> TMDB id -> stored metadata.
  *
- * Cache-first by design. A slug already in slug_map costs zero API calls, which
+ * Cache-first by design. A film already in film_map costs zero API calls, which
  * is what makes match quality compound across users instead of being re-paid
  * every upload.
  */
@@ -9,7 +9,7 @@ import { chooseMatch, type Candidate } from "../tmdb/match.ts";
 import { NotFound, type TmdbClient } from "../tmdb/client.ts";
 import type { Store } from "../store/db.ts";
 
-export type ResolveInput = { slug: string; name: string; year: number | null };
+export type ResolveInput = { filmKey: string; name: string; year: number | null };
 
 export type ResolveStats = {
   total: number;
@@ -19,7 +19,7 @@ export type ResolveStats = {
   newlyUnmatched: number;
   filmsFetched: number;
   filmsAlreadyStored: number;
-  errors: { slug: string; message: string }[];
+  errors: { filmKey: string; message: string }[];
 };
 
 export function emptyStats(): ResolveStats {
@@ -48,7 +48,7 @@ export async function resolveOne(
   stats: ResolveStats,
   { refetch = false } = {},
 ): Promise<number | null> {
-  const cached = store.lookupSlug(input.slug);
+  const cached = store.lookupFilm(input.filmKey);
 
   let tmdbId: number | null;
   if (cached) {
@@ -68,13 +68,13 @@ export async function resolveOne(
         candidates = await client.searchMovie(input.name);
       }
     } catch (err) {
-      stats.errors.push({ slug: input.slug, message: (err as Error).message });
+      stats.errors.push({ filmKey: input.filmKey, message: (err as Error).message });
       return null;
     }
 
-    const outcome = chooseMatch(input.name, input.year, candidates, input.slug);
-    store.recordSlug({
-      slug: input.slug,
+    const outcome = chooseMatch(input.name, input.year, candidates, null);
+    store.recordFilm({
+      filmKey: input.filmKey,
       tmdbId: outcome.tmdbId,
       confidence: outcome.confidence,
       method: outcome.method,
@@ -83,7 +83,7 @@ export async function resolveOne(
     });
 
     if (outcome.tmdbId == null) {
-      store.recordUnmatched(input.slug, input.name, input.year, outcome.confidence);
+      store.recordUnmatched(input.filmKey, input.name, input.year, outcome.confidence);
       stats.newlyUnmatched++;
       return null;
     }
@@ -105,17 +105,17 @@ export async function resolveOne(
     if (err instanceof NotFound) {
       // The id resolved but the film is gone from TMDB. Demote the mapping so we
       // don't keep trying, and flag it for manual review.
-      store.recordSlug({
-        slug: input.slug,
+      store.recordFilm({
+        filmKey: input.filmKey,
         tmdbId: null,
         confidence: 0,
         method: "tmdb_404",
         sourceTitle: input.name,
         sourceYear: input.year,
       });
-      store.recordUnmatched(input.slug, input.name, input.year, 0);
+      store.recordUnmatched(input.filmKey, input.name, input.year, 0);
     }
-    stats.errors.push({ slug: input.slug, message: (err as Error).message });
+    stats.errors.push({ filmKey: input.filmKey, message: (err as Error).message });
     return null;
   }
 }

@@ -12,8 +12,8 @@
  */
 import { DatabaseSync } from "node:sqlite";
 
-export type SlugResolution = {
-  slug: string;
+export type FilmResolution = {
+  filmKey: string;
   tmdbId: number | null;
   confidence: number;
   method: string;
@@ -93,8 +93,10 @@ CREATE TABLE IF NOT EXISTS film_cast (
 );
 
 -- The compounding asset. tmdb_id NULL means "we looked and could not resolve it".
-CREATE TABLE IF NOT EXISTS slug_map (
-  slug         TEXT PRIMARY KEY,
+-- Keyed by film_key, which is "boxd:<id>" for a real Letterboxd film id or
+-- "ty:<title>:<year>" for a diary row we could not join to one.
+CREATE TABLE IF NOT EXISTS film_map (
+  film_key     TEXT PRIMARY KEY,
   tmdb_id      INTEGER,
   confidence   REAL    NOT NULL,
   method       TEXT    NOT NULL,
@@ -105,7 +107,7 @@ CREATE TABLE IF NOT EXISTS slug_map (
 
 -- Every miss, so match quality can be audited and fixed by hand over time.
 CREATE TABLE IF NOT EXISTS unmatched (
-  slug       TEXT PRIMARY KEY,
+  film_key   TEXT PRIMARY KEY,
   title      TEXT NOT NULL,
   year       INTEGER,
   seen_count INTEGER NOT NULL DEFAULT 1,
@@ -117,7 +119,7 @@ CREATE TABLE IF NOT EXISTS unmatched (
 CREATE INDEX IF NOT EXISTS idx_crew_person   ON film_crew(person_id);
 CREATE INDEX IF NOT EXISTS idx_cast_person   ON film_cast(person_id);
 CREATE INDEX IF NOT EXISTS idx_films_collect ON films(collection_id);
-CREATE INDEX IF NOT EXISTS idx_slug_tmdb     ON slug_map(tmdb_id);
+CREATE INDEX IF NOT EXISTS idx_film_map_tmdb  ON film_map(tmdb_id);
 `;
 
 // Imported lazily to keep this module usable without a TMDB dependency cycle.
@@ -153,42 +155,42 @@ export class Store {
     return row !== undefined;
   }
 
-  lookupSlug(slug: string): SlugResolution | null {
+  lookupFilm(filmKey: string): FilmResolution | null {
     const row = this.db
       .prepare(
-        `SELECT slug, tmdb_id AS tmdbId, confidence, method,
+        `SELECT film_key AS filmKey, tmdb_id AS tmdbId, confidence, method,
                 source_title AS sourceTitle, source_year AS sourceYear
-         FROM slug_map WHERE slug = ?`,
+         FROM film_map WHERE film_key = ?`,
       )
-      .get(slug) as SlugResolution | undefined;
+      .get(filmKey) as FilmResolution | undefined;
     return row ?? null;
   }
 
-  recordSlug(r: SlugResolution): void {
+  recordFilm(r: FilmResolution): void {
     this.db
       .prepare(
-        `INSERT INTO slug_map (slug, tmdb_id, confidence, method, source_title, source_year, resolved_at)
+        `INSERT INTO film_map (film_key, tmdb_id, confidence, method, source_title, source_year, resolved_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(slug) DO UPDATE SET
+         ON CONFLICT(film_key) DO UPDATE SET
            tmdb_id = excluded.tmdb_id,
            confidence = excluded.confidence,
            method = excluded.method,
            resolved_at = excluded.resolved_at`,
       )
-      .run(r.slug, r.tmdbId, r.confidence, r.method, r.sourceTitle, r.sourceYear, new Date().toISOString());
+      .run(r.filmKey, r.tmdbId, r.confidence, r.method, r.sourceTitle, r.sourceYear, new Date().toISOString());
   }
 
-  recordUnmatched(slug: string, title: string, year: number | null, bestScore: number): void {
+  recordUnmatched(filmKey: string, title: string, year: number | null, bestScore: number): void {
     this.db
       .prepare(
-        `INSERT INTO unmatched (slug, title, year, best_score, last_seen)
+        `INSERT INTO unmatched (film_key, title, year, best_score, last_seen)
          VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(slug) DO UPDATE SET
+         ON CONFLICT(film_key) DO UPDATE SET
            seen_count = seen_count + 1,
            best_score = MAX(COALESCE(unmatched.best_score, 0), excluded.best_score),
            last_seen  = excluded.last_seen`,
       )
-      .run(slug, title, year, bestScore, new Date().toISOString());
+      .run(filmKey, title, year, bestScore, new Date().toISOString());
   }
 
   upsertFilm(f: FilmMetadata): void {
@@ -249,8 +251,8 @@ export class Store {
     const one = (sql: string) => (this.db.prepare(sql).get() as { n: number }).n;
     return {
       films: one("SELECT COUNT(*) AS n FROM films"),
-      resolved: one("SELECT COUNT(*) AS n FROM slug_map WHERE tmdb_id IS NOT NULL"),
-      unresolved: one("SELECT COUNT(*) AS n FROM slug_map WHERE tmdb_id IS NULL"),
+      resolved: one("SELECT COUNT(*) AS n FROM film_map WHERE tmdb_id IS NOT NULL"),
+      unresolved: one("SELECT COUNT(*) AS n FROM film_map WHERE tmdb_id IS NULL"),
       unmatched: one("SELECT COUNT(*) AS n FROM unmatched"),
     };
   }

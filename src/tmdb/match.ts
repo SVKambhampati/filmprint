@@ -7,15 +7,34 @@
  * film pages. Everything is resolved from Name + Year against TMDB search.
  *
  * The important property: matching is solved once per FILM, never once per USER.
- * A resolved slug is written to the slug_map table and every later user gets an
+ * A resolved film is written to the film_map table and every later user gets an
  * exact hit. Match quality is an asset that compounds.
  */
 
-/** Strip the slug out of a Letterboxd URI. Returns null for non-film entries. */
-export function slugFromUri(uri: string): string | null {
-  // Expected: https://letterboxd.com/film/<slug>/
-  const m = /letterboxd\.com\/film\/([^/?#]+)/i.exec(uri.trim());
-  return m ? decodeURIComponent(m[1]!).toLowerCase() : null;
+/**
+ * Extract the identifier from a Letterboxd URI.
+ *
+ * Real exports use short links — `https://boxd.it/jUk4` — not the
+ * `letterboxd.com/film/<slug>/` form. Both are accepted because older exports
+ * and hand-entered data use the long form.
+ *
+ * CRITICAL: the short code's meaning depends on WHICH FILE it came from.
+ * ratings.csv / watched.csv / watchlist.csv carry FILM ids; diary.csv carries
+ * DIARY ENTRY ids, which live in a different id space entirely and share no
+ * overlap with film ids. This function cannot tell them apart and does not try —
+ * the caller knows which file it is reading. See normalize.ts.
+ */
+export function letterboxdId(uri: string): string | null {
+  const t = uri.trim();
+  if (t.length === 0) return null;
+
+  const short = /boxd\.it\/([A-Za-z0-9]+)/.exec(t);
+  if (short) return short[1]!;
+
+  const long = /letterboxd\.com\/film\/([^/?#]+)/i.exec(t);
+  if (long) return decodeURIComponent(long[1]!).toLowerCase();
+
+  return null;
 }
 
 const LEADING_ARTICLES = ["the", "a", "an", "le", "la", "les", "el", "il", "lo", "der", "die", "das"];
@@ -66,6 +85,31 @@ export function diceSimilarity(a: string, b: string): number {
   return (2 * hits) / (a.length - 1 + b.length - 1);
 }
 
+/**
+ * Score for "the query is the candidate's title minus a subtitle".
+ *
+ * Letterboxd frequently carries the short theatrical title while TMDB carries
+ * the full one: "Glass Onion" vs "Glass Onion: A Knives Out Mystery", "Wake Up
+ * Dead Man" vs the same. Bigram similarity punishes that length gap hard enough
+ * to push a correct match below the accept threshold.
+ *
+ * Deliberately capped below 1 so a genuine exact title always outranks a prefix
+ * match — "Dune" must still prefer Dune over Dune: Part Two. And the year factor
+ * still applies on top, so a prefix match with a wrong year is refused.
+ */
+const SUBTITLE_PREFIX_SCORE = 0.94;
+
+function subtitlePrefixScore(wanted: string, candidate: string): number {
+  if (wanted.length === 0 || candidate.length === 0) return 0;
+  if (wanted === candidate) return 0; // exact matches are dice's job
+  // Require a word boundary so "her" does not prefix-match "hereditary", and a
+  // reasonable length so very short queries cannot swallow long titles.
+  if (wanted.length < 5) return 0;
+  const [shorter, longer] = wanted.length < candidate.length ? [wanted, candidate] : [candidate, wanted];
+  if (!longer.startsWith(shorter + " ")) return 0;
+  return SUBTITLE_PREFIX_SCORE;
+}
+
 export type MatchMethod = "exact" | "year_slack" | "fuzzy" | "unmatched";
 
 export type Candidate = {
@@ -114,9 +158,14 @@ export function scoreCandidate(
   slug?: string | null,
 ): number {
   const wanted = normalizeTitle(csvTitle);
+  const candTitle = normalizeTitle(candidate.title);
+  const candOriginal = normalizeTitle(candidate.original_title);
+
   const titleScore = Math.max(
-    diceSimilarity(wanted, normalizeTitle(candidate.title)),
-    diceSimilarity(wanted, normalizeTitle(candidate.original_title)),
+    diceSimilarity(wanted, candTitle),
+    diceSimilarity(wanted, candOriginal),
+    subtitlePrefixScore(wanted, candTitle),
+    subtitlePrefixScore(wanted, candOriginal),
   );
 
   const candYear = Number.parseInt(candidate.release_date?.slice(0, 4) ?? "", 10);

@@ -5,16 +5,17 @@
  *   npm run build:dataset -- <path-to-unzipped-export> [--limit N] [--refetch]
  *   npm run build:dataset -- --report
  *
- * Point it at an unzipped Letterboxd export directory. It resolves every film
- * slug to a TMDB id, fetches the metadata we keep, and reports the match rate —
- * which is the number that decides whether this product works at all.
+ * Point it at an unzipped Letterboxd export directory. It resolves every film to
+ * a TMDB id, fetches the metadata we keep, and reports the match rate — the
+ * number that decides whether this product works at all.
  */
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { TmdbClient, mapLimit } from "../tmdb/client.ts";
 import { Store } from "../store/db.ts";
-import { normalizeDiary, normalizeRatings, normalizeWatchlist, allSlugs } from "../hygiene/normalize.ts";
+import { normalizeExport, allFilms } from "../hygiene/normalize.ts";
+import { GATES } from "../hygiene/thresholds.ts";
 import { emptyStats, resolveOne, type ResolveInput } from "./resolve.ts";
 
 const DB_PATH = process.env.FILMPRINT_DB ?? "data/filmprint.db";
@@ -26,6 +27,10 @@ async function readIfPresent(dir: string, file: string): Promise<string> {
 
 function pct(n: number, d: number): string {
   return d === 0 ? "n/a" : `${((n / d) * 100).toFixed(1)}%`;
+}
+
+function row(label: string, value: string | number, note = ""): void {
+  console.log(`${label.padEnd(24)}${String(value).padStart(7)}${note ? "  " + note : ""}`);
 }
 
 async function main(): Promise<void> {
@@ -59,115 +64,139 @@ async function main(): Promise<void> {
   const limit = limitArg >= 0 ? Number(args[limitArg + 1]) : Infinity;
   const refetch = args.includes("--refetch");
 
-  const [diaryText, ratingsText, watchlistText] = await Promise.all([
+  const [diary, ratings, watched, watchlist] = await Promise.all([
     readIfPresent(exportDir, "diary.csv"),
     readIfPresent(exportDir, "ratings.csv"),
+    readIfPresent(exportDir, "watched.csv"),
     readIfPresent(exportDir, "watchlist.csv"),
   ]);
 
-  if (!diaryText && !ratingsText && !watchlistText) {
-    console.error(`found no diary.csv, ratings.csv or watchlist.csv in ${exportDir}`);
+  if (!diary && !ratings && !watched && !watchlist) {
+    console.error(`found no diary/ratings/watched/watchlist CSVs in ${exportDir}`);
     process.exitCode = 1;
     store.close();
     return;
   }
 
-  const { entries: diary, audit } = normalizeDiary(diaryText);
-  const ratings = normalizeRatings(ratingsText);
-  const watchlist = normalizeWatchlist(watchlistText);
+  const summary = normalizeExport({ diary, ratings, watched, watchlist });
+  const a = summary.audit;
 
   console.log("── hygiene ──────────────────────────────────────────");
-  console.log(`diary rows read        ${audit.diaryRowsRead}`);
-  console.log(`  duplicates dropped   ${audit.duplicatesDropped}`);
-  console.log(`  non-film dropped     ${audit.nonFilmDropped}  (TV entries, malformed rows)`);
-  console.log(`  unparseable dropped  ${audit.unparseableDropped}`);
-  console.log(`usable diary entries   ${diary.length}`);
-  console.log(`  rated / unrated      ${audit.ratedCount} / ${audit.unratedCount}`);
-  console.log(`  clean-dated          ${audit.cleanDatedCount}  ${pct(audit.cleanDatedCount, diary.length)} — safe for temporal stats`);
-  console.log(`  bulk-logged          ${audit.bulkLoggedCount}  (import clusters)`);
-  console.log(`ratings.csv rows       ${ratings.length}`);
-  console.log(`watchlist rows         ${watchlist.length}`);
+  row("diary rows read", a.diaryRowsRead);
+  row("  unparseable", a.unparseableDropped);
+  row("  duplicates dropped", a.duplicatesDropped, "(same film, same watched date)");
+  row("diary entries kept", a.diaryEntriesKept);
+  row("  distinct films", a.diaryDistinctFilms);
+  row("  joined to film id", a.diaryJoinedToFilmId, `${pct(a.diaryJoinedToFilmId, a.diaryEntriesKept)} via (name, year)`);
+  row("  unjoined", a.diaryUnjoined, a.diaryUnjoined > 0 ? "← fell back to title+year key" : "");
+  row("  rated / unrated", `${a.ratedEntries}/${a.unratedEntries}`);
+  row("  clean-dated", a.cleanDatedCount, `${pct(a.cleanDatedCount, a.diaryEntriesKept)} — safe for temporal stats`);
+  row("  bulk-logged", a.bulkLoggedCount, "(import clusters)");
+  console.log("");
+  row("ratings.csv", a.ratingsRows);
+  row("watched.csv", a.watchedRows);
+  row("watchlist.csv", a.watchlistRows);
+  row("distinct films", a.distinctFilms);
 
-  const slugMap = allSlugs({ diary, ratings, watchlist });
-  const inputs: ResolveInput[] = [...slugMap.entries()]
-    .map(([slug, v]) => ({ slug, name: v.name, year: v.year }))
+  // The gap between rating-based and date-based sample sizes decides which stats
+  // can even render, so surface it here rather than discovering it in the UI.
+  console.log("\n── what these numbers allow ─────────────────────────");
+  const gate = (name: string, have: number, need: number) => {
+    const ok = have >= need;
+    console.log(`  ${ok ? "✓" : "✗"} ${name.padEnd(34)} ${String(have).padStart(5)} / ${need} needed`);
+  };
+  gate("rating distribution stats", a.ratingsRows, GATES.ratingDistribution);
+  gate("crowd comparison (contrarian)", a.ratingsRows, GATES.crowdComparison);
+  gate("per-person (director/DoP/actor)", a.ratingsRows, GATES.perPerson);
+  gate("per-month / per-year slicing", a.cleanDatedCount, GATES.temporalSlicing);
+  gate("lag & seasonality", a.cleanDatedCount, GATES.cleanDated);
+  gate("watchlist half-life", a.watchlistRows, 25);
+  if (a.watchedToDiaryRatio !== null && a.watchedToDiaryRatio > 3) {
+    console.log(
+      `\n  ! watched/diary ratio is ${a.watchedToDiaryRatio.toFixed(1)}x. This user rates without\n` +
+        `    logging diary entries, so taste stats are rich and BEHAVIOUR stats are starved.\n` +
+        `    Lean the hero page on rating-based stats for users like this.`,
+    );
+  }
+
+  const films = allFilms(summary);
+  const inputs: ResolveInput[] = [...films.values()]
+    .map((f) => ({ filmKey: f.key, name: f.name, year: f.year }))
     .slice(0, Number.isFinite(limit) ? limit : undefined);
-
-  console.log(`\ndistinct films          ${slugMap.size}${inputs.length < slugMap.size ? ` (resolving ${inputs.length} due to --limit)` : ""}`);
 
   const client = new TmdbClient(process.env.TMDB_API_KEY ?? "", Number(process.env.TMDB_RPS ?? 20));
   const stats = emptyStats();
   stats.total = inputs.length;
 
-  console.log("\n── resolving ────────────────────────────────────────");
+  console.log(`\n── resolving ${inputs.length} films ─────────────────────────`);
+  const started = Date.now();
   let done = 0;
   await mapLimit(inputs, 12, async (input) => {
     await resolveOne(input, client, store, stats, { refetch });
     done++;
-    if (done % 50 === 0 || done === inputs.length) {
-      process.stdout.write(`\r  ${done}/${inputs.length} films  ·  ${client.callCount} API calls`);
+    if (done % 25 === 0 || done === inputs.length) {
+      const rate = done / ((Date.now() - started) / 1000);
+      process.stdout.write(`\r  ${done}/${inputs.length}  ·  ${client.callCount} API calls  ·  ${rate.toFixed(0)}/s   `);
     }
   });
   process.stdout.write("\n");
 
-  const matched = stats.total - countUnresolved(store, inputs.map((i) => i.slug));
+  const unresolved = inputs.filter((i) => {
+    const hit = store.lookupFilm(i.filmKey);
+    return !hit || hit.tmdbId == null;
+  });
+  const matched = stats.total - unresolved.length;
+
   console.log("\n── match rate ───────────────────────────────────────");
-  console.log(`matched                ${matched} of ${stats.total}  ${pct(matched, stats.total)}`);
-  console.log(`  cache hits           ${stats.cacheHits}  (zero API cost)`);
-  console.log(`  newly resolved       ${stats.newlyResolved}`);
-  console.log(`  newly unmatched      ${stats.newlyUnmatched}`);
-  console.log(`films fetched          ${stats.filmsFetched}`);
-  console.log(`films already stored   ${stats.filmsAlreadyStored}`);
-  console.log(`TMDB API calls         ${client.callCount}`);
+  row("matched", matched, `of ${stats.total}  →  ${pct(matched, stats.total)}`);
+  row("  cache hits", stats.cacheHits, "(zero API cost)");
+  row("  newly resolved", stats.newlyResolved);
+  row("  newly unmatched", stats.newlyUnmatched);
+  row("films fetched", stats.filmsFetched);
+  row("already stored", stats.filmsAlreadyStored);
+  row("TMDB API calls", client.callCount);
+  row("elapsed", `${((Date.now() - started) / 1000).toFixed(0)}s`);
+
   if (stats.errors.length > 0) {
-    console.log(`\nerrors                 ${stats.errors.length}`);
-    for (const e of stats.errors.slice(0, 10)) console.log(`  ${e.slug}: ${e.message}`);
-    if (stats.errors.length > 10) console.log(`  ...and ${stats.errors.length - 10} more`);
+    console.log(`\nerrors: ${stats.errors.length}`);
+    for (const e of stats.errors.slice(0, 8)) console.log(`  ${e.filmKey}: ${e.message}`);
+    if (stats.errors.length > 8) console.log(`  ...and ${stats.errors.length - 8} more`);
   }
 
   const rate = stats.total === 0 ? 0 : matched / stats.total;
   console.log("");
   if (rate >= 0.95) console.log("✓ match rate is healthy. The stats layer can trust this.");
-  else if (rate >= 0.85) console.log("⚠ match rate is usable but the tail needs attention — see `--report`.");
-  else console.log("✗ match rate is too low to build stats on. Inspect the unmatched table before going further.");
+  else if (rate >= 0.85) console.log("⚠ match rate is usable but the tail needs attention — see the unmatched list.");
+  else console.log("✗ match rate is too low to build stats on. Inspect the unmatched list before going further.");
 
   report(store);
   store.close();
 }
 
-function countUnresolved(store: Store, slugs: readonly string[]): number {
-  let n = 0;
-  for (const s of slugs) {
-    const hit = store.lookupSlug(s);
-    if (!hit || hit.tmdbId == null) n++;
-  }
-  return n;
-}
-
 function report(store: Store): void {
   const s = store.stats();
   console.log("\n── store ────────────────────────────────────────────");
-  console.log(`films stored           ${s.films}`);
-  console.log(`slugs resolved         ${s.resolved}`);
-  console.log(`slugs unresolved       ${s.unresolved}`);
+  row("films stored", s.films);
+  row("films resolved", s.resolved);
+  row("films unresolved", s.unresolved);
 
   const worst = store.db
     .prepare(
-      `SELECT slug, title, year, seen_count, best_score
-       FROM unmatched ORDER BY seen_count DESC, best_score DESC LIMIT 15`,
+      `SELECT film_key, title, year, seen_count, best_score
+       FROM unmatched ORDER BY best_score DESC, seen_count DESC LIMIT 25`,
     )
-    .all() as { slug: string; title: string; year: number | null; seen_count: number; best_score: number | null }[];
+    .all() as { film_key: string; title: string; year: number | null; seen_count: number; best_score: number | null }[];
 
   if (worst.length > 0) {
-    console.log("\ntop unmatched (fix these by hand first — they recur across users):");
+    console.log("\nunmatched (highest score first — these are the near-misses worth fixing):");
     for (const u of worst) {
       const score = u.best_score == null ? "—" : u.best_score.toFixed(2);
-      console.log(`  ${String(u.seen_count).padStart(4)}x  score ${score}  ${u.title} (${u.year ?? "?"})  [${u.slug}]`);
+      console.log(`  score ${score}  ${u.title} (${u.year ?? "?"})`);
     }
   }
 
   const methods = store.db
-    .prepare("SELECT method, COUNT(*) AS n FROM slug_map GROUP BY method ORDER BY n DESC")
+    .prepare("SELECT method, COUNT(*) AS n FROM film_map GROUP BY method ORDER BY n DESC")
     .all() as { method: string; n: number }[];
   if (methods.length > 0) {
     console.log("\nresolution methods:");
@@ -178,8 +207,6 @@ function report(store: Store): void {
 try {
   await main();
 } catch (err) {
-  // Config problems (a missing API key, an unreadable export) are user errors,
-  // not crashes. Print the message, skip the stack trace.
   console.error(`\nerror: ${(err as Error).message}`);
   process.exitCode = 1;
 }

@@ -50,23 +50,23 @@ test("re-fetching REMOVES child rows that TMDB volunteers deleted", () => {
   s.close();
 });
 
-test("slug resolutions are cached and overwritable", () => {
+test("film resolutions are cached and overwritable", () => {
   const s = fresh();
-  s.recordSlug({ slug: "parasite", tmdbId: 496243, confidence: 1, method: "exact", sourceTitle: "Parasite", sourceYear: 2019 });
-  assert.equal(s.lookupSlug("parasite")!.tmdbId, 496243);
-  assert.equal(s.lookupSlug("nope"), null);
+  s.recordFilm({ filmKey: "parasite", tmdbId: 496243, confidence: 1, method: "exact", sourceTitle: "Parasite", sourceYear: 2019 });
+  assert.equal(s.lookupFilm("parasite")!.tmdbId, 496243);
+  assert.equal(s.lookupFilm("nope"), null);
 
   // A hand-correction must be able to replace a bad automatic match.
-  s.recordSlug({ slug: "parasite", tmdbId: 999, confidence: 1, method: "manual", sourceTitle: "Parasite", sourceYear: 2019 });
-  assert.equal(s.lookupSlug("parasite")!.tmdbId, 999);
-  assert.equal(s.lookupSlug("parasite")!.method, "manual");
+  s.recordFilm({ filmKey: "parasite", tmdbId: 999, confidence: 1, method: "manual", sourceTitle: "Parasite", sourceYear: 2019 });
+  assert.equal(s.lookupFilm("parasite")!.tmdbId, 999);
+  assert.equal(s.lookupFilm("parasite")!.method, "manual");
   s.close();
 });
 
 test("a negative resolution is recorded so we don't re-query it forever", () => {
   const s = fresh();
-  s.recordSlug({ slug: "some-short", tmdbId: null, confidence: 0.4, method: "unmatched", sourceTitle: "Some Short", sourceYear: 1968 });
-  const hit = s.lookupSlug("some-short");
+  s.recordFilm({ filmKey: "some-short", tmdbId: null, confidence: 0.4, method: "unmatched", sourceTitle: "Some Short", sourceYear: 1968 });
+  const hit = s.lookupFilm("some-short");
   assert.notEqual(hit, null, "the row exists");
   assert.equal(hit!.tmdbId, null, "but resolves to nothing");
   assert.equal(s.stats().unresolved, 1);
@@ -77,7 +77,7 @@ test("unmatched rows accumulate a seen_count for prioritising manual fixes", () 
   const s = fresh();
   s.recordUnmatched("obscure", "Obscure", 1970, 0.5);
   s.recordUnmatched("obscure", "Obscure", 1970, 0.7);
-  const row = s.db.prepare("SELECT seen_count, best_score FROM unmatched WHERE slug = ?").get("obscure") as { seen_count: number; best_score: number };
+  const row = s.db.prepare("SELECT seen_count, best_score FROM unmatched WHERE film_key = ?").get("obscure") as { seen_count: number; best_score: number };
   assert.equal(row.seen_count, 2);
   assert.equal(row.best_score, 0.7, "best score should be the max seen");
   s.close();
