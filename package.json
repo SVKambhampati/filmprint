@@ -1,0 +1,19 @@
+{
+  "name": "filmprint",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "See your filmprint \u2014 stats about what your Letterboxd history says about you.",
+  "engines": {
+    "node": ">=23.6"
+  },
+  "scripts": {
+    "build:dataset": "node --env-file=.env src/generator/build.ts",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0",
+    "@types/node": "^22.10.0"
+  }
+}
