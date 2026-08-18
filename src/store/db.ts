@@ -290,6 +290,49 @@ export class Store {
     return out;
   }
 
+  /** Genres for a set of films. Multi-label: a film appears under several. */
+  genresFor(tmdbIds: readonly number[]): Map<number, string[]> {
+    return this.#childRows(tmdbIds, "SELECT tmdb_id, genre FROM film_genres WHERE tmdb_id IN", (r) => r.genre as string);
+  }
+
+  /** Kept crew (director, DoP, composer, editor) for a set of films. */
+  crewFor(tmdbIds: readonly number[]): Map<number, { id: number; name: string; job: string }[]> {
+    const out = new Map<number, { id: number; name: string; job: string }[]>();
+    this.#eachChunk(tmdbIds, (chunk, placeholders) => {
+      const rows = this.db
+        .prepare(`SELECT tmdb_id, person_id, name, job FROM film_crew WHERE tmdb_id IN (${placeholders})`)
+        .all(...chunk) as { tmdb_id: number; person_id: number; name: string; job: string }[];
+      for (const r of rows) {
+        const list = out.get(r.tmdb_id) ?? [];
+        list.push({ id: r.person_id, name: r.name, job: r.job });
+        out.set(r.tmdb_id, list);
+      }
+    });
+    return out;
+  }
+
+  #childRows<T>(tmdbIds: readonly number[], sqlPrefix: string, pick: (r: Record<string, unknown>) => T): Map<number, T[]> {
+    const out = new Map<number, T[]>();
+    this.#eachChunk(tmdbIds, (chunk, placeholders) => {
+      const rows = this.db.prepare(`${sqlPrefix} (${placeholders})`).all(...chunk) as Record<string, unknown>[];
+      for (const r of rows) {
+        const id = r.tmdb_id as number;
+        const list = out.get(id) ?? [];
+        list.push(pick(r));
+        out.set(id, list);
+      }
+    });
+    return out;
+  }
+
+  #eachChunk(ids: readonly number[], fn: (chunk: number[], placeholders: string) => void): void {
+    const CHUNK = 500;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      fn(chunk, chunk.map(() => "?").join(","));
+    }
+  }
+
   stats(): { films: number; resolved: number; unresolved: number; unmatched: number } {
     const one = (sql: string) => (this.db.prepare(sql).get() as { n: number }).n;
     return {

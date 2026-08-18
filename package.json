@@ -12,7 +12,8 @@
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "check:matcher": "node --env-file=.env src/tmdb/check-matcher.ts",
-    "page": "node src/generator/page.ts"
+    "page": "node src/generator/page.ts",
+    "stats": "node src/generator/stats.ts"
   },
   "devDependencies": {
     "typescript": "^5.8.0",
