@@ -25,6 +25,7 @@ Early. What exists today is the foundation, not the site:
 | SQLite store | done, tested |
 | Dataset generator CLI | done — **98.6% match rate on a real 1,889-film export** |
 | Live matcher check (`npm run check:matcher`) | 22/22 against real TMDB |
+| Stat registry + page selector | done, tested |
 | Individual stats | not started |
 | Web UI | not started |
 
@@ -86,12 +87,22 @@ DIARY ENTRY ids, which share zero overlap. A diary row joins to a film on
 `(Name, Year)`, not on its URI. This is the single easiest thing to get wrong
 here — the first live run matched nothing because of it.
 
-**Rating-based and date-based stats have wildly different sample sizes.** Users
-rate and mark watched without logging diary entries. On the export used to build
-this the ratio was 18.7x: 1,868 rated films against 100 diary entries, of which
-only 79 were clean-dated. Taste stats had thousands of observations; every
-temporal stat failed its gate. Plan for the hero page to lean on rating-based
-stats, and treat the diary-based ones as a bonus for heavy loggers.
+**There is no fixed hero row — the page is computed per user.** Logging style
+varies too much for a hand-picked front page. One real export had 1,868 rated
+films against 100 diary entries (79 clean-dated) and 21 watchlist entries, a
+watched-to-diary ratio of 18.7x. A user who logs every watch same-day would gate
+out a completely different set.
+
+So every stat declares its sample requirements in `src/stats/registry.ts`, and
+`selectStats` checks them against the actual export and ranks the survivors by
+revealing x shareable x how comfortably they clear their gates. Two editorial
+constraints ride along: at most two stats per category (so the hero row is not
+six versions of one idea), and at least one stat that does not sting (a page of
+pure unflattering findings reads as an attack).
+
+Run `npm run page -- <export>` to see the page any export would produce,
+including what got gated out and why. Build the selector before the stats:
+retrofitting "am I allowed to render?" into 28 implementations is miserable.
 
 **Non-commercial, and that is load-bearing.** TMDB's API is free for
 non-commercial use with attribution. Anything "created for the primary purpose of

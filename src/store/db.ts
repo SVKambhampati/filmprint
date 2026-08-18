@@ -12,6 +12,19 @@
  */
 import { DatabaseSync } from "node:sqlite";
 
+export type JoinedFilm = {
+  filmKey: string;
+  tmdbId: number;
+  title: string;
+  releaseDate: string | null;
+  runtime: number | null;
+  originalLanguage: string;
+  voteAverage: number;
+  voteCount: number;
+  collectionId: number | null;
+  posterPath: string | null;
+};
+
 export type FilmResolution = {
   filmKey: string;
   tmdbId: number | null;
@@ -245,6 +258,36 @@ export class Store {
 
     const cast = this.db.prepare("INSERT OR IGNORE INTO film_cast (tmdb_id, person_id, name, billing_order) VALUES (?, ?, ?, ?)");
     for (const c of f.cast) cast.run(f.tmdbId, c.id, c.name, c.order);
+  }
+
+  /**
+   * Join the user's film keys to the metadata the stats need, in one query.
+   *
+   * Keys that never resolved are simply absent from the result — that absence is
+   * the TV bucket, and callers should report it rather than treat it as zero.
+   */
+  joinedFilms(filmKeys: readonly string[]): Map<string, JoinedFilm> {
+    const out = new Map<string, JoinedFilm>();
+    if (filmKeys.length === 0) return out;
+
+    // Chunked to stay well under SQLite's parameter limit on large libraries.
+    const CHUNK = 500;
+    for (let i = 0; i < filmKeys.length; i += CHUNK) {
+      const chunk = filmKeys.slice(i, i + CHUNK);
+      const placeholders = chunk.map(() => "?").join(",");
+      const rows = this.db
+        .prepare(
+          `SELECT m.film_key AS filmKey, f.tmdb_id AS tmdbId, f.title, f.release_date AS releaseDate,
+                  f.runtime, f.original_language AS originalLanguage, f.vote_average AS voteAverage,
+                  f.vote_count AS voteCount, f.collection_id AS collectionId, f.poster_path AS posterPath
+           FROM film_map m
+           JOIN films f ON f.tmdb_id = m.tmdb_id
+           WHERE m.film_key IN (${placeholders})`,
+        )
+        .all(...chunk) as JoinedFilm[];
+      for (const r of rows) out.set(r.filmKey, r);
+    }
+    return out;
   }
 
   stats(): { films: number; resolved: number; unresolved: number; unmatched: number } {

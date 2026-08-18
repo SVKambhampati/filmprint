@@ -11,7 +11,8 @@
     "build:dataset": "node --env-file=.env src/generator/build.ts",
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
-    "check:matcher": "node --env-file=.env src/tmdb/check-matcher.ts"
+    "check:matcher": "node --env-file=.env src/tmdb/check-matcher.ts",
+    "page": "node src/generator/page.ts"
   },
   "devDependencies": {
     "typescript": "^5.8.0",
