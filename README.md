@@ -24,6 +24,7 @@ Early. What exists today is the foundation, not the site:
 | TMDB schema, client, matcher | done, tested |
 | SQLite store | done, tested |
 | Dataset generator CLI | done, needs a real export to validate match rate |
+| Live matcher check (`npm run check:matcher`) | 22/22 against real TMDB |
 | Individual stats | not started |
 | Web UI | not started |
 
@@ -47,10 +48,17 @@ you match 70% of a real library then every chart downstream is wrong and no
 amount of design fixes it.
 
 ```bash
-npm test          # 58 tests
+npm test               # 62 tests, no network
 npm run typecheck
+npm run check:matcher  # 22 live cases against real TMDB (~23 API calls)
 npm run build:dataset -- --report    # store contents + top unmatched, no network
 ```
+
+`check:matcher` is the one to run after touching `src/tmdb/match.ts`. It covers
+the cases that actually break matching: remakes sharing a title (Dune, Solaris,
+Nosferatu), original-language titles (기생충), diacritics and punctuation
+(Amélie, WALL·E), festival-vs-release year gaps, and a film that must be
+*refused* rather than guessed.
 
 ## Design constraints
 

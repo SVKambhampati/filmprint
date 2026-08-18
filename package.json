@@ -10,7 +10,8 @@
   "scripts": {
     "build:dataset": "node --env-file=.env src/generator/build.ts",
     "test": "node --test \"src/**/*.test.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:matcher": "node --env-file=.env src/tmdb/check-matcher.ts"
   },
   "devDependencies": {
     "typescript": "^5.8.0",

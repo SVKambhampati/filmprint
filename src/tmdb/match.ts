@@ -88,6 +88,19 @@ export type MatchOutcome = {
 export const ACCEPT_THRESHOLD = 0.82;
 
 /**
+ * Year gap tolerated when the title matches EXACTLY and no other candidate does.
+ *
+ * TMDB's primary release_date is often the wide or streaming release while
+ * Letterboxd shows the festival premiere, and that gap runs to two or three
+ * years (Am I OK? premiered at Sundance in 2022; TMDB holds 2024). A perfect
+ * title match with no competitor should not be vetoed by that.
+ *
+ * Bounded, though: a unique exact title match a century away is a different
+ * film, not a festival lag.
+ */
+export const EXACT_TITLE_MAX_YEAR_GAP = 3;
+
+/**
  * Score one candidate against the CSV row.
  *
  * Year agreement matters a lot: remakes and re-releases share titles, and the
@@ -148,14 +161,36 @@ export function chooseMatch(
   const best = scored[0]!;
   const runnerUp = scored[1]?.score ?? null;
 
-  if (best.score < ACCEPT_THRESHOLD) {
-    return { tmdbId: null, confidence: best.score, method: "unmatched", runnerUp };
-  }
+  const wanted = normalizeTitle(csvTitle);
+  const isExactTitle = (c: Candidate) =>
+    normalizeTitle(c.title) === wanted || normalizeTitle(c.original_title) === wanted;
 
   const bestYear = Number.parseInt(best.c.release_date?.slice(0, 4) ?? "", 10);
   const exactYear = csvYear != null && bestYear === csvYear;
-  const nearTitle = normalizeTitle(csvTitle) === normalizeTitle(best.c.title) ||
-    normalizeTitle(csvTitle) === normalizeTitle(best.c.original_title);
+  const nearTitle = isExactTitle(best.c);
+
+  if (best.score < ACCEPT_THRESHOLD) {
+    // The year is a RANKING signal, not a veto. When exactly one candidate's
+    // title matches perfectly, there is no rival film to prefer instead, so a
+    // release-date disagreement should not sink it — that is the festival-vs-
+    // wide-release gap, not a wrong match. With two exact-title candidates
+    // (Dune 1984 vs 2021) the year still decides, because the scores above
+    // already ranked them.
+    const exactTitleCount = candidates.filter(isExactTitle).length;
+    const yearGap =
+      csvYear != null && Number.isFinite(bestYear) ? Math.abs(bestYear - csvYear) : null;
+
+    const rescuable =
+      nearTitle &&
+      exactTitleCount === 1 &&
+      yearGap !== null &&
+      yearGap <= EXACT_TITLE_MAX_YEAR_GAP;
+
+    if (!rescuable) {
+      return { tmdbId: null, confidence: best.score, method: "unmatched", runnerUp };
+    }
+    return { tmdbId: best.c.id, confidence: best.score, method: "year_slack", runnerUp };
+  }
 
   const method: MatchMethod = nearTitle && exactYear ? "exact" : nearTitle ? "year_slack" : "fuzzy";
 

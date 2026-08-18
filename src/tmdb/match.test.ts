@@ -105,3 +105,40 @@ test("scoreCandidate rewards slug agreement slightly", () => {
   assert.ok(withSlug >= withoutSlug);
   assert.ok(withSlug <= 1, "score must stay bounded at 1");
 });
+
+test("a unique exact title survives a festival-vs-release year gap", () => {
+  // Am I OK? premiered at Sundance in 2022; TMDB holds the 2024 wide release.
+  // Perfect title, no rival candidate -> must match, flagged year_slack.
+  const c = [cand({ id: 641934, title: "Am I OK?", release_date: "2024-06-06", vote_count: 357 })];
+  const out = chooseMatch("Am I OK?", 2022, c);
+  assert.equal(out.tmdbId, 641934);
+  assert.equal(out.method, "year_slack");
+});
+
+test("but a unique exact title a century away is still refused", () => {
+  const c = [cand({ id: 653, title: "Nosferatu", release_date: "1922-03-04", vote_count: 2000 })];
+  assert.equal(chooseMatch("Nosferatu", 2024, c).tmdbId, null, "102 years is a different film");
+});
+
+test("the year-gap rescue does not fire when a rival exact title exists", () => {
+  // Two Dunes: the rescue must stay off and the year must decide.
+  const candidates = [
+    cand({ id: 841, title: "Dune", release_date: "1984-12-14", vote_count: 3000 }),
+    cand({ id: 438631, title: "Dune", release_date: "2021-09-15", vote_count: 11000 }),
+  ];
+  assert.equal(chooseMatch("Dune", 1984, candidates).tmdbId, 841);
+  assert.equal(chooseMatch("Dune", 2021, candidates).tmdbId, 438631);
+  // And a year matching NEITHER should not silently take the popular one.
+  assert.equal(chooseMatch("Dune", 1965, candidates).tmdbId, null);
+});
+
+test("an exact title with no candidate release date is accepted, not rescued", () => {
+  // A missing TMDB release_date costs only a mild year penalty, so an exact
+  // unique title clears ACCEPT_THRESHOLD on the ordinary path. The rescue's
+  // null-year guard is therefore defensive: with an exact title the score only
+  // falls below threshold when BOTH years are known and disagree by 2+.
+  const c = [cand({ id: 1, title: "Untitled Thing", release_date: "", vote_count: 5 })];
+  const out = chooseMatch("Untitled Thing", 2020, c);
+  assert.equal(out.tmdbId, 1);
+  assert.ok(out.confidence >= ACCEPT_THRESHOLD, `expected acceptance, got ${out.confidence}`);
+});
