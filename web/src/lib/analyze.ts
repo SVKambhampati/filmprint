@@ -79,16 +79,33 @@ export type Analysis = {
 export type LookupFn = (filmKeys: string[]) => Promise<MetadataPayload>;
 
 /**
- * In development the payload is a static file. In production this becomes a POST
- * to the lookup endpoint carrying only film identifiers.
+ * The real lookup: POST film identifiers, get metadata back.
+ *
+ * The request body contains nothing but film keys — no ratings, no dates, no
+ * reviews. Those never leave the tab, which is what makes the claim on the front
+ * page true rather than decorative.
  */
+export const httpLookup: LookupFn = async (filmKeys) => {
+  const res = await fetch("/api/films", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ filmKeys }),
+  });
+  if (!res.ok) {
+    const detail = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(detail?.error ?? `Could not look up your films (${res.status}).`);
+  }
+  return (await res.json()) as MetadataPayload;
+};
+
+/** Static-file fallback, for working on the layout without the API running. */
 export const fixtureLookup: LookupFn = async () => {
   const res = await fetch("/payload.json");
   if (!res.ok) throw new Error(`Could not load film metadata (${res.status}).`);
   return (await res.json()) as MetadataPayload;
 };
 
-export async function analyze(files: ExportFiles, lookup: LookupFn = fixtureLookup): Promise<Analysis> {
+export async function analyze(files: ExportFiles, lookup: LookupFn = httpLookup): Promise<Analysis> {
   const summary = normalizeExport(files);
   const filmKeys = [...allFilms(summary).keys()];
   if (filmKeys.length === 0) {

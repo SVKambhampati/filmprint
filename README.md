@@ -30,7 +30,7 @@ Early. What exists today is the foundation, not the site:
 | Page composition (`composePage`) | done, tested |
 | Remaining stats | 2 blocked on unbuilt prerequisites |
 | Web UI | drop-a-zip → full page, client-side |
-| Lookup endpoint | not started (dev uses a static payload) |
+| Lookup endpoint | done — POST film ids, get metadata, 304 on repeat |
 
 ## Getting started
 
@@ -65,7 +65,7 @@ you match 70% of a real library then every chart downstream is wrong and no
 amount of design fixes it.
 
 ```bash
-npm test               # 211 tests, no network
+npm test               # 220 tests, no network
 npm run typecheck
 npm run check:matcher  # 22 live cases against real TMDB (~23 API calls)
 npm run build:dataset -- --report    # store contents + top unmatched, no network
@@ -84,6 +84,12 @@ These are decisions, not TODOs. Changing them means re-reading the reasoning.
 **CSV upload is the only way in, permanently.** Letterboxd's API has been in
 closed beta for years, and as of December 2025 they block scrapers. There will
 never be a "just type your username" path.
+
+**The request body carries film identifiers and nothing else.** That is where the
+privacy claim is enforced rather than asserted: `parseRequest` reads `filmKeys`
+and ignores every other field, so a client that sent ratings alongside would have
+them dropped on the floor. A test asserts exactly that. Stats run in the tab; the
+server never learns what anyone thought of anything.
 
 **The metadata store is a build-time artefact, never a public file.** TMDB's
 terms forbid redistributing their data; a 50k-film JSON blob on a CDN is
