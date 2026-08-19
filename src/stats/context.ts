@@ -6,7 +6,7 @@
  * testable without a database.
  */
 import type { ExportSummary } from "../hygiene/normalize.ts";
-import type { JoinedFilm } from "../store/db.ts";
+import type { JoinedFilm } from "../store/types.ts";
 import { mean } from "./primitives.ts";
 import type { SampleProfile } from "./registry.ts";
 import { releaseYearOf } from "./util.ts";

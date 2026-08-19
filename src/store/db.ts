@@ -11,19 +11,9 @@
  * distribution. A thin lookup endpoint reads from here instead.
  */
 import { DatabaseSync } from "node:sqlite";
+import type { CastCredit, CollectionPart, CountryWeight, CrewCredit, JoinedFilm } from "./types.ts";
 
-export type JoinedFilm = {
-  filmKey: string;
-  tmdbId: number;
-  title: string;
-  releaseDate: string | null;
-  runtime: number | null;
-  originalLanguage: string;
-  voteAverage: number;
-  voteCount: number;
-  collectionId: number | null;
-  posterPath: string | null;
-};
+export type { JoinedFilm } from "./types.ts";
 
 export type FilmResolution = {
   filmKey: string;
@@ -317,8 +307,8 @@ export class Store {
    * A four-country co-production returns 0.25 four times. Summing weights rather
    * than counting rows is what keeps derived shares from exceeding 100%.
    */
-  countriesFor(tmdbIds: readonly number[]): Map<number, { code: string; weight: number }[]> {
-    const out = new Map<number, { code: string; weight: number }[]>();
+  countriesFor(tmdbIds: readonly number[]): Map<number, CountryWeight[]> {
+    const out = new Map<number, CountryWeight[]>();
     this.#eachChunk(tmdbIds, (chunk, placeholders) => {
       const rows = this.db
         .prepare(`SELECT tmdb_id, country, weight FROM film_countries WHERE tmdb_id IN (${placeholders})`)
@@ -333,8 +323,8 @@ export class Store {
   }
 
   /** Top-billed cast (order <= 8) for a set of films. */
-  castFor(tmdbIds: readonly number[]): Map<number, { id: number; name: string; order: number }[]> {
-    const out = new Map<number, { id: number; name: string; order: number }[]>();
+  castFor(tmdbIds: readonly number[]): Map<number, CastCredit[]> {
+    const out = new Map<number, CastCredit[]>();
     this.#eachChunk(tmdbIds, (chunk, placeholders) => {
       const rows = this.db
         .prepare(`SELECT tmdb_id, person_id, name, billing_order FROM film_cast WHERE tmdb_id IN (${placeholders})`)
@@ -369,8 +359,8 @@ export class Store {
   }
 
   /** Part lists for a set of collections. */
-  collectionPartsFor(collectionIds: readonly number[]): Map<number, { tmdbId: number; title: string; releaseDate: string | null }[]> {
-    const out = new Map<number, { tmdbId: number; title: string; releaseDate: string | null }[]>();
+  collectionPartsFor(collectionIds: readonly number[]): Map<number, CollectionPart[]> {
+    const out = new Map<number, CollectionPart[]>();
     this.#eachChunk(collectionIds, (chunk, placeholders) => {
       const rows = this.db
         .prepare(
@@ -404,8 +394,8 @@ export class Store {
   }
 
   /** Kept crew (director, DoP, composer, editor) for a set of films. */
-  crewFor(tmdbIds: readonly number[]): Map<number, { id: number; name: string; job: string }[]> {
-    const out = new Map<number, { id: number; name: string; job: string }[]>();
+  crewFor(tmdbIds: readonly number[]): Map<number, CrewCredit[]> {
+    const out = new Map<number, CrewCredit[]>();
     this.#eachChunk(tmdbIds, (chunk, placeholders) => {
       const rows = this.db
         .prepare(`SELECT tmdb_id, person_id, name, job FROM film_crew WHERE tmdb_id IN (${placeholders})`)

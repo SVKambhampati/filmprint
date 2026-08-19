@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildContext, type StatContext } from "../context.ts";
 import { emptyProfile } from "../profile.ts";
 import { normalizeExport, filmKeyFromId } from "../../hygiene/normalize.ts";
-import type { JoinedFilm } from "../../store/db.ts";
+import type { JoinedFilm } from "../../store/types.ts";
 import { invisibleSignature, CREW_MIN_FILMS, MIN_DISTINCT_DIRECTORS, KEYWORD_BLOCKLIST } from "./invisible-signature.ts";
 import { ratingSeasonality, MONTH_MIN_N } from "./rating-seasonality.ts";
 import { IMPLEMENTATIONS } from "../compose.ts";

@@ -5,7 +5,7 @@ import { buildContext } from "./context.ts";
 import { emptyProfile } from "./profile.ts";
 import { normalizeExport, filmKeyFromId } from "../hygiene/normalize.ts";
 import { STATS, type SampleProfile } from "./registry.ts";
-import type { JoinedFilm } from "../store/db.ts";
+import type { JoinedFilm } from "../store/types.ts";
 
 function ctxOf(n: number, over: Partial<SampleProfile> = {}) {
   const films = Array.from({ length: n }, (_, i) => ({ id: `f${i}`, rating: [3, 3.5, 4][i % 3]! }));

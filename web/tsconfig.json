@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"]
+  },
+  // Only the web app's own sources. Files under ../src are typechecked by being
+  // imported, which is the point of the browser-safety tests: anything reachable
+  // from here must not need Node types.
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

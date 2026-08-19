@@ -6,7 +6,7 @@
  * this measures what a user HAS, and neither knows about the other's internals.
  */
 import type { ExportSummary } from "../hygiene/normalize.ts";
-import type { JoinedFilm } from "../store/db.ts";
+import type { JoinedFilm } from "../store/types.ts";
 import { MIN_VOTE_COUNT } from "./calibration.ts";
 import type { SampleProfile } from "./registry.ts";
 

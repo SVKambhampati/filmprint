@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildContext, type StatContext } from "../context.ts";
 import { emptyProfile } from "../profile.ts";
 import { normalizeExport, filmKeyFromId } from "../../hygiene/normalize.ts";
-import type { JoinedFilm } from "../../store/db.ts";
+import type { JoinedFilm } from "../../store/types.ts";
 import { scaleCollapse, MAX_BITS } from "./scale-collapse.ts";
 import { harshnessSplit, QUADRANT_MIN_N } from "./harshness-split.ts";
 import { tasteCrystallization, PEAK_MIN_BIN_N, chooseBinWidth } from "./taste-crystallization.ts";

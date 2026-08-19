@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildContext, type StatContext } from "../context.ts";
 import { emptyProfile } from "../profile.ts";
 import { normalizeExport, filmKeyFromId } from "../../hygiene/normalize.ts";
-import type { JoinedFilm } from "../../store/db.ts";
+import type { JoinedFilm } from "../../store/types.ts";
 import { tasteRadius } from "./taste-radius.ts";
 import { genreConviction } from "./genre-conviction.ts";
 import { halfStarTell } from "./half-star-tell.ts";

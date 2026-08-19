@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildContext, type StatContext } from "../context.ts";
 import { emptyProfile } from "../profile.ts";
 import { normalizeExport, filmKeyFromId } from "../../hygiene/normalize.ts";
-import type { JoinedFilm } from "../../store/db.ts";
+import type { JoinedFilm } from "../../store/types.ts";
 import { completionistIndex, MIN_COLLECTIONS } from "./completionist-index.ts";
 
 type Part = { tmdbId: number; title: string; releaseDate: string | null };

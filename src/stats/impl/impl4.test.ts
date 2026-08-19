@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildContext, type StatContext } from "../context.ts";
 import { emptyProfile } from "../profile.ts";
 import { normalizeExport, filmKeyFromId, reviewToPlainText, countWords } from "../../hygiene/normalize.ts";
-import type { JoinedFilm } from "../../store/db.ts";
+import type { JoinedFilm } from "../../store/types.ts";
 import { reviewAsymmetry } from "./review-asymmetry.ts";
 import { runtimePrestige } from "./runtime-prestige.ts";
 import { castBlindspot, ACTOR_MIN_FILMS } from "./cast-blindspot.ts";

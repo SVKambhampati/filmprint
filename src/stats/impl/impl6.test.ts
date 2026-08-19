@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildContext, type StatContext } from "../context.ts";
 import { emptyProfile } from "../profile.ts";
 import { normalizeExport, filmKeyFromId } from "../../hygiene/normalize.ts";
-import type { JoinedFilm } from "../../store/db.ts";
+import type { JoinedFilm } from "../../store/types.ts";
 import { zeitgeistLag, LAG_MIN_FILMS } from "./zeitgeist-lag.ts";
 import { ipShare, YEAR_MIN_FILMS } from "./ip-share.ts";
 

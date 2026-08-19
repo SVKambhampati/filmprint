@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildContext, type StatContext } from "../context.ts";
 import { emptyProfile } from "../profile.ts";
 import { normalizeExport, filmKeyFromId } from "../../hygiene/normalize.ts";
-import type { JoinedFilm } from "../../store/db.ts";
+import type { JoinedFilm } from "../../store/types.ts";
 import { watchlistGraveyard, GRAVEYARD_DAYS } from "./watchlist-graveyard.ts";
 import { ratingBarrier, BARRIER_MIN_GROUP, formatP } from "./rating-barrier.ts";
 

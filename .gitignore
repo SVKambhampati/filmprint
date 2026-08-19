@@ -9,3 +9,10 @@ data/exports/
 dist/
 .DS_Store
 *.log
+
+# Dev fixtures built from a real export. These must NEVER be committed:
+# payload.json is bulk TMDB metadata (redistribution), and demo/ is a person's
+# actual viewing history. The repo is public.
+web/public/payload.json
+web/public/demo/
+dist/

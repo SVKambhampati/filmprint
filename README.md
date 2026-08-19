@@ -29,7 +29,8 @@ Early. What exists today is the foundation, not the site:
 | 22 of 28 stats implemented | done, tested |
 | Page composition (`composePage`) | done, tested |
 | Remaining stats | 2 blocked on unbuilt prerequisites |
-| Web UI | not started |
+| Web UI | drop-a-zip → full page, client-side |
+| Lookup endpoint | not started (dev uses a static payload) |
 
 ## Getting started
 
@@ -37,6 +38,19 @@ Early. What exists today is the foundation, not the site:
 npm install
 cp .env.example .env      # then paste your TMDB v3 API key
 ```
+
+To run the app, build a metadata payload from an export and start the dev server:
+
+```bash
+npm run dump:payload -- ~/Downloads/letterboxd-export
+npm run dev
+```
+
+`web/public/payload.json` is what the lookup endpoint will eventually return; keeping
+it as a file means the UI can be built without a server. It is gitignored, as is
+`web/public/demo/` — one is bulk TMDB metadata and the other is a real person's
+viewing history, and this repo is public. Append `?demo` in development to load
+from `web/public/demo/` instead of dragging a file each reload.
 
 Export your data from Letterboxd (Settings → account export — this is available
 to all accounts, not just Pro), unzip it, then:
@@ -51,7 +65,7 @@ you match 70% of a real library then every chart downstream is wrong and no
 amount of design fixes it.
 
 ```bash
-npm test               # 208 tests, no network
+npm test               # 211 tests, no network
 npm run typecheck
 npm run check:matcher  # 22 live cases against real TMDB (~23 API calls)
 npm run build:dataset -- --report    # store contents + top unmatched, no network
