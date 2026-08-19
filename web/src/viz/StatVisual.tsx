@@ -12,7 +12,7 @@
  */
 import type { ReactNode } from "react";
 import { Bars, Columns, Figure, LineArea, PairedCompare } from "./Primitives.tsx";
-import { DotCloud, PosterGrid, Quadrant, type Poster } from "./Scatter.tsx";
+import { DotCloud, PosterGrid, PositionScales } from "./Scatter.tsx";
 import { VIZ, compact } from "./tokens.ts";
 
 import type { ScaleCollapse } from "../../../src/stats/impl/scale-collapse.ts";
@@ -90,16 +90,29 @@ const VISUALS: Record<string, (data: never) => ReactNode> = {
   "harshness-split": (d: HarshnessSplit) => (
     <Figure note={d.quadrant ? undefined : "Quadrant withheld — too few films with comparable crowd votes."}>
       {d.quadrant ? (
-        <Quadrant
-          x={d.rankAgreement}
-          y={d.level.offset}
-          xDomain={[-0.2, 0.8]}
-          yDomain={[-1.2, 1.2]}
-          xLabels={["your own order", "the crowd's order"]}
-          yLabels={["harsher", "more generous"]}
-          quadrantLabel={d.quadrant}
-          xValue={`tau ${d.rankAgreement.toFixed(2)}`}
-          yValue={`${d.level.offset >= 0 ? "+" : ""}${d.level.offset.toFixed(2)}★`}
+        <PositionScales
+          scales={[
+            {
+              measure: "How you rate, against what these films usually get",
+              value: d.level.offset,
+              domain: [-1.2, 1.2],
+              poles: ["a star below", "a star above"],
+              reference: 0,
+              referenceLabel: "expected",
+              format: (n) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}★`,
+              verdict: d.level.offset < 0 ? "harsh" : "generous",
+            },
+            {
+              measure: "How you order films, against the crowd's order",
+              value: d.rankAgreement,
+              domain: [-0.1, 0.9],
+              poles: ["your own order", "the crowd's order"],
+              reference: 0.3,
+              referenceLabel: "conformity line",
+              format: (n) => `tau ${n.toFixed(2)}`,
+              verdict: d.rankAgreement >= 0.3 ? "conforms" : "contrarian",
+            },
+          ]}
         />
       ) : null}
       {d.byLanguage.length > 1 ? (

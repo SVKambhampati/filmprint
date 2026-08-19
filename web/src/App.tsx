@@ -141,6 +141,14 @@ function Report({ analysis, onReset }: { analysis: Analysis; onReset: () => void
   const { page, summary, profile, matched, requested } = analysis;
   const unmatched = requested - matched;
 
+  // Three tiers instead of nineteen equal boxes. The old page was 8.6 screens of
+  // uniformly-weighted cards with a 5x height spread, which is what made it read
+  // as janky: no hierarchy, so nothing looked important.
+  const withFinding = [...page.hero, ...page.secondary].filter((s) => s.finding !== "none");
+  const features = withFinding.slice(0, 3);
+  const compact = withFinding.slice(3);
+  const quiet = [...page.hero, ...page.secondary].filter((s) => s.finding === "none");
+
   return (
     <>
       <div className="audit">
@@ -161,24 +169,38 @@ function Report({ analysis, onReset }: { analysis: Analysis; onReset: () => void
         ) : null}
       </div>
 
-      <p className="section-label">What your films say about you</p>
-      <div className="hero-grid">
-        {page.hero.map((s, i) => (
-          // The lead stat gets the full width: it carries the headline finding and
-          // its chart is the one worth reading at size.
-          <StatCard key={s.def.id} stat={s} wide={i === 0} />
+      {/* Tier 1: the three strongest findings, full width, chart at size. */}
+      <section className="features">
+        {features.map((s, i) => (
+          <StatCard key={s.def.id} stat={s} variant="feature" rank={i + 1} />
         ))}
-      </div>
+      </section>
 
-      {page.secondary.length > 0 ? (
+      {/* Tier 2: everything else that found something, compact and equal-height. */}
+      {compact.length > 0 ? (
         <>
-          <p className="section-label">And also</p>
-          <div className="secondary-list">
-            {page.secondary.map((s) => (
-              <StatCard key={s.def.id} stat={s} />
+          <p className="section-label">More about you</p>
+          <div className="compact-grid">
+            {compact.map((s) => (
+              <StatCard key={s.def.id} stat={s} variant="compact" />
             ))}
           </div>
         </>
+      ) : null}
+
+      {/* Tier 3: real findings that happen to be absences. Demoted, never hidden. */}
+      {quiet.length > 0 ? (
+        <details className="quiet">
+          <summary>{quiet.length} things your films did NOT say</summary>
+          <div className="quiet-list">
+            {quiet.map((s) => (
+              <div key={s.def.id}>
+                <b>{s.title}</b>
+                <p>{s.copy}</p>
+              </div>
+            ))}
+          </div>
+        </details>
       ) : null}
 
       <Withheld page={page} />

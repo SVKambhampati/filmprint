@@ -2,6 +2,7 @@
  * Scatter forms: a positioned quadrant, a general dot cloud, and posters.
  */
 import { useState } from "react";
+import { useWidth } from "./useWidth.ts";
 import { MARK, VIZ } from "./tokens.ts";
 import { Tooltip, type Tip } from "./Primitives.tsx";
 
@@ -34,7 +35,7 @@ export function Quadrant({
   yValue: string;
   height?: number;
 }) {
-  const W = 520;
+  const [box, W] = useWidth<HTMLDivElement>();
   const padX = 12;
   const padTop = 22;
   const padBottom = 30;
@@ -50,7 +51,8 @@ export function Quadrant({
   const calloutX = sx > W * 0.55 ? sx - 14 : sx + 14;
 
   return (
-    <svg viewBox={`0 0 ${W} ${height}`} className="viz-svg" role="img">
+    <div ref={box} className="viz-box">
+    <svg viewBox={`0 0 ${W} ${height}`} width={W} height={height} className="viz-svg" role="img">
       <rect x={padX} y={padTop} width={plotW} height={plotH} fill="none" stroke={VIZ.grid} strokeWidth="1" />
       {/* The dividers ARE the reference lines, so they read as axes not data. */}
       <line x1={midX} x2={midX} y1={padTop} y2={height - padBottom} stroke={VIZ.axis} strokeWidth="1" />
@@ -83,6 +85,7 @@ export function Quadrant({
         {xValue} · {yValue}
       </text>
     </svg>
+    </div>
   );
 }
 
@@ -114,15 +117,14 @@ export function DotCloud({
   yFormat?: (n: number) => string;
 }) {
   const [tip, setTip] = useState<Tip>(null);
-  const W = 520;
+  const [box, W] = useWidth<HTMLDivElement>();
   const padL = 42;
   const padR = 16;
   const padT = 16;
   const padB = 32;
-  if (data.length === 0) return null;
 
-  const xs = data.map((d) => d.x);
-  const ys = data.map((d) => d.y);
+  const xs = data.length > 0 ? data.map((d) => d.x) : [0, 1];
+  const ys = data.length > 0 ? data.map((d) => d.y) : [0, 1];
   const xr = pad(Math.min(...xs), Math.max(...xs));
   const yr = pad(Math.min(...ys), Math.max(...ys));
 
@@ -136,7 +138,8 @@ export function DotCloud({
   for (const d of [...data].sort((a, b) => b.y - a.y).slice(0, labelled)) toLabel.add(d.label);
 
   return (
-    <svg viewBox={`0 0 ${W} ${height}`} className="viz-svg" role="img">
+    <div ref={box} className="viz-box">
+    <svg viewBox={`0 0 ${W} ${height}`} width={W} height={height} className="viz-svg" role="img">
       <line x1={padL} x2={W - padR} y1={height - padB} y2={height - padB} stroke={VIZ.axis} strokeWidth="1" />
       <line x1={padL} x2={padL} y1={padT} y2={height - padB} stroke={VIZ.axis} strokeWidth="1" />
       {xZeroLine && xr[0] < 0 && xr[1] > 0 ? (
@@ -169,6 +172,7 @@ export function DotCloud({
       })}
       <Tooltip tip={tip} width={W} />
     </svg>
+    </div>
   );
 }
 
@@ -209,5 +213,102 @@ export function PosterGrid({ items, max = 12 }: { items: Poster[]; max?: number 
         </li>
       ))}
     </ul>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Position scale — one value on a labelled continuum
+// ---------------------------------------------------------------------------
+
+export type Scale = {
+  measure: string;
+  value: number;
+  domain: [number, number];
+  /** [low pole, high pole] — what the ends of the scale MEAN. */
+  poles: [string, string];
+  /** Reference point, e.g. 0 for "no offset" or a conformity threshold. */
+  reference?: number;
+  referenceLabel?: string;
+  format: (n: number) => string;
+  /** Where the subject actually falls, in words. */
+  verdict: string;
+};
+
+/**
+ * Two numbers on labelled continua, rather than one dot in a 2x2.
+ *
+ * This replaced a quadrant chart. A 2x2 with a single point spends a large area
+ * on four empty boxes to encode two values, and the reader still has to work out
+ * what each axis means from corner labels. A position scale states the poles
+ * inline, marks the reference, and puts the value where it falls — the same two
+ * numbers, read instantly, in a third of the space.
+ */
+export function PositionScales({ scales }: { scales: Scale[] }) {
+  const [box, W] = useWidth<HTMLDivElement>();
+  const rowH = 66;
+  const H = scales.length * rowH;
+  const padX = 4;
+  const trackW = W - padX * 2;
+
+  return (
+    <div ref={box} className="viz-box">
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="viz-svg" role="img">
+        {scales.map((sc, i) => {
+          const y = i * rowH + 30;
+          const clamp = (v: number) => Math.min(sc.domain[1], Math.max(sc.domain[0], v));
+          const at = (v: number) => padX + ((clamp(v) - sc.domain[0]) / (sc.domain[1] - sc.domain[0])) * trackW;
+          const vx = at(sc.value);
+          const refX = sc.reference != null ? at(sc.reference) : null;
+          return (
+            <g key={sc.measure}>
+              {/* Measure on the left, value on the right, one baseline. An earlier
+                  version floated the value above the marker, where it collided with
+                  this label whenever the marker sat mid-track. */}
+              <text x={padX} y={y - 15} fontSize="10.5" fill={VIZ.inkMuted}>
+                {sc.measure}
+              </text>
+              <text x={W - padX} y={y - 15} fontSize="12.5" fill={VIZ.ink} textAnchor="end">
+                {sc.format(sc.value)} · {sc.verdict}
+              </text>
+
+              {/* Track, then the filled span from the reference to the value, so
+                  the DISTANCE from normal is the thing you see. */}
+              <line x1={padX} x2={W - padX} y1={y} y2={y} stroke={VIZ.grid} strokeWidth="6" strokeLinecap="round" />
+              {refX != null ? (
+                <>
+                  <line
+                    x1={Math.min(refX, vx)}
+                    x2={Math.max(refX, vx)}
+                    y1={y}
+                    y2={y}
+                    stroke={VIZ.series[0]}
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                  />
+                  <line x1={refX} x2={refX} y1={y - 9} y2={y + 9} stroke={VIZ.axis} strokeWidth="1" />
+                  {sc.referenceLabel ? (
+                    <text x={refX} y={y + 22} fontSize="9.5" fill={VIZ.inkMuted} textAnchor="middle">
+                      {sc.referenceLabel}
+                    </text>
+                  ) : null}
+                </>
+              ) : null}
+
+              <circle cx={vx} cy={y} r={MARK.markerRadius + MARK.surfaceRing} fill={VIZ.surface} />
+              <circle cx={vx} cy={y} r={MARK.markerRadius + 1} fill={VIZ.series[0]} />
+
+              <text x={padX} y={y + 22} fontSize="9.5" fill={VIZ.inkMuted}>
+                {sc.poles[0]}
+              </text>
+              <text x={W - padX} y={y + 22} fontSize="9.5" fill={VIZ.inkMuted} textAnchor="end">
+                {sc.poles[1]}
+              </text>
+
+            </g>
+          );
+        })}
+      </svg>
+    </div>
   );
 }

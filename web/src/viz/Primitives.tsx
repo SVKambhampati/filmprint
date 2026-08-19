@@ -7,7 +7,8 @@
  * Every form here ships a hover layer, because an SVG chart in a page IS
  * interactive and a mark you cannot interrogate is a mark you have to guess at.
  */
-import { useId, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { useWidth } from "./useWidth.ts";
 import { MARK, VIZ, compact } from "./tokens.ts";
 
 // ---------------------------------------------------------------------------
@@ -94,7 +95,7 @@ export function Columns({
   highlightLabel?: string;
 }) {
   const [tip, setTip] = useState<Tip>(null);
-  const W = 520;
+  const [box, W] = useWidth<HTMLDivElement>();
   const padL = 4;
   const padB = 22;
   const padT = 18;
@@ -104,7 +105,8 @@ export function Columns({
   const barW = Math.min(MARK.barMaxThickness, band - MARK.surfaceGap);
 
   return (
-    <svg viewBox={`0 0 ${W} ${height}`} className="viz-svg" role="img">
+    <div ref={box} className="viz-box">
+    <svg viewBox={`0 0 ${W} ${height}`} width={W} height={height} className="viz-svg" role="img">
       {/* Baseline only. Gridlines would out-ink the data at this size. */}
       <line x1={padL} x2={W - padL} y1={padT + plotH} y2={padT + plotH} stroke={VIZ.axis} strokeWidth="1" />
       {data.map((d, i) => {
@@ -163,6 +165,7 @@ export function Columns({
       })}
       <Tooltip tip={tip} width={W} />
     </svg>
+    </div>
   );
 }
 
@@ -188,14 +191,15 @@ export function Bars({
   rowHeight?: number;
 }) {
   const [tip, setTip] = useState<Tip>(null);
-  const W = 520;
+  const [box, W] = useWidth<HTMLDivElement>();
   const H = data.length * rowHeight + 6;
   const max = Math.max(1, ...data.map((d) => d.value));
   const barH = Math.min(MARK.barMaxThickness, rowHeight - 8);
   const plotW = W - labelWidth - 52;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="viz-svg" role="img">
+    <div ref={box} className="viz-box">
+    <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="viz-svg" role="img">
       {data.map((d, i) => {
         const w = Math.max(1, (d.value / max) * plotW);
         const y = i * rowHeight + 3;
@@ -224,6 +228,7 @@ export function Bars({
       })}
       <Tooltip tip={tip} width={W} />
     </svg>
+    </div>
   );
 }
 
@@ -255,12 +260,11 @@ export function LineArea({
   yFormat?: (n: number) => string;
 }) {
   const [tip, setTip] = useState<Tip>(null);
-  const W = 520;
+  const [box, W] = useWidth<HTMLDivElement>();
   const padL = 34;
   const padR = 14;
   const padT = 16;
   const padB = 24;
-  if (data.length < 2) return null;
 
   const xs = data.map((d) => d.x);
   const ys = data.map((d) => d.y);
@@ -273,12 +277,14 @@ export function LineArea({
   const sx = (x: number) => padL + ((x - x0) / (x1 - x0 || 1)) * (W - padL - padR);
   const sy = (y: number) => padT + (1 - (y - y0) / (y1 - y0 || 1)) * (height - padT - padB);
 
+  if (data.length < 2) return null;
   const path = data.map((d, i) => `${i === 0 ? "M" : "L"}${sx(d.x)},${sy(d.y)}`).join(" ");
   const area = `${path} L${sx(x1)},${sy(y0)} L${sx(x0)},${sy(y0)} Z`;
   const ticks = [y0 + (y1 - y0) * 0.15, (y0 + y1) / 2, y1 - (y1 - y0) * 0.15];
 
   return (
-    <svg viewBox={`0 0 ${W} ${height}`} className="viz-svg" role="img">
+    <div ref={box} className="viz-box">
+    <svg viewBox={`0 0 ${W} ${height}`} width={W} height={height} className="viz-svg" role="img">
       {ticks.map((t) => (
         <g key={t}>
           <line x1={padL} x2={W - padR} y1={sy(t)} y2={sy(t)} stroke={VIZ.grid} strokeWidth="1" />
@@ -320,6 +326,7 @@ export function LineArea({
       <text x={W - padR} y={height - 7} fontSize="10" fill={VIZ.inkMuted} textAnchor="end">{xFormat(x1)}</text>
       <Tooltip tip={tip} width={W} />
     </svg>
+    </div>
   );
 }
 

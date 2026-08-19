@@ -10,14 +10,22 @@ import { StatVisual, HAS_VISUAL } from "../viz/StatVisual.tsx";
  * page of genuinely rich data read as a wall of text — and buried the numbers the
  * charts are built from.
  */
-export function StatCard({ stat, wide }: { stat: ComposedStat; wide?: boolean }) {
+export function StatCard({
+  stat,
+  variant = "compact",
+  rank,
+}: {
+  stat: ComposedStat;
+  variant?: "feature" | "compact";
+  rank?: number;
+}) {
   const [showCaveat, setShowCaveat] = useState(false);
   const hasViz = HAS_VISUAL(stat.def.id) && stat.finding !== "none";
 
   return (
-    <article className={`card${wide ? " card-wide" : ""}`}>
+    <article className={`card card-${variant}`}>
       <div className="card-head">
-        <span className="mark" data-f={stat.finding} aria-hidden />
+        {rank ? <span className="card-rank">{String(rank).padStart(2, "0")}</span> : <span className="mark" data-f={stat.finding} aria-hidden />}
         <h3>{stat.title}</h3>
       </div>
 
