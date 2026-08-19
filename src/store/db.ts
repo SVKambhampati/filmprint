@@ -295,6 +295,43 @@ export class Store {
     return this.#childRows(tmdbIds, "SELECT tmdb_id, genre FROM film_genres WHERE tmdb_id IN", (r) => r.genre as string);
   }
 
+  /**
+   * Production countries with their FRACTIONAL weights.
+   *
+   * A four-country co-production returns 0.25 four times. Summing weights rather
+   * than counting rows is what keeps derived shares from exceeding 100%.
+   */
+  countriesFor(tmdbIds: readonly number[]): Map<number, { code: string; weight: number }[]> {
+    const out = new Map<number, { code: string; weight: number }[]>();
+    this.#eachChunk(tmdbIds, (chunk, placeholders) => {
+      const rows = this.db
+        .prepare(`SELECT tmdb_id, country, weight FROM film_countries WHERE tmdb_id IN (${placeholders})`)
+        .all(...chunk) as { tmdb_id: number; country: string; weight: number }[];
+      for (const r of rows) {
+        const list = out.get(r.tmdb_id) ?? [];
+        list.push({ code: r.country, weight: r.weight });
+        out.set(r.tmdb_id, list);
+      }
+    });
+    return out;
+  }
+
+  /** Top-billed cast (order <= 8) for a set of films. */
+  castFor(tmdbIds: readonly number[]): Map<number, { id: number; name: string; order: number }[]> {
+    const out = new Map<number, { id: number; name: string; order: number }[]>();
+    this.#eachChunk(tmdbIds, (chunk, placeholders) => {
+      const rows = this.db
+        .prepare(`SELECT tmdb_id, person_id, name, billing_order FROM film_cast WHERE tmdb_id IN (${placeholders})`)
+        .all(...chunk) as { tmdb_id: number; person_id: number; name: string; billing_order: number }[];
+      for (const r of rows) {
+        const list = out.get(r.tmdb_id) ?? [];
+        list.push({ id: r.person_id, name: r.name, order: r.billing_order });
+        out.set(r.tmdb_id, list);
+      }
+    });
+    return out;
+  }
+
   /** Kept crew (director, DoP, composer, editor) for a set of films. */
   crewFor(tmdbIds: readonly number[]): Map<number, { id: number; name: string; job: string }[]> {
     const out = new Map<number, { id: number; name: string; job: string }[]>();

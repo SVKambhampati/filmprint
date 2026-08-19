@@ -19,6 +19,11 @@ import { tasteCrystallization } from "./impl/taste-crystallization.ts";
 import { comfortObject } from "./impl/comfort-object.ts";
 import { obscurityLedger } from "./impl/obscurity-ledger.ts";
 import { abandonedDiscovery } from "./impl/abandoned-discovery.ts";
+import { tasteRadius } from "./impl/taste-radius.ts";
+import { genreConviction } from "./impl/genre-conviction.ts";
+import { halfStarTell } from "./impl/half-star-tell.ts";
+import { impossibleDays } from "./impl/impossible-days.ts";
+import { popularityCorrelation } from "./impl/popularity-correlation.ts";
 
 export type Computable = (ctx: StatContext) => StatResult<unknown>;
 
@@ -33,6 +38,11 @@ export const IMPLEMENTATIONS: Readonly<Record<string, Computable>> = {
   "comfort-object": comfortObject,
   "obscurity-ledger": obscurityLedger,
   "abandoned-discovery": abandonedDiscovery,
+  "taste-radius": tasteRadius,
+  "genre-conviction": genreConviction,
+  "half-star-tell": halfStarTell,
+  "bulk-log-confession": impossibleDays,
+  "popularity-correlation": popularityCorrelation,
 };
 
 export type ComposedStat = {

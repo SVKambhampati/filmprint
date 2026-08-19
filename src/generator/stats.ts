@@ -33,7 +33,13 @@ const store = new Store(process.env.FILMPRINT_DB ?? "data/filmprint.db");
 const joined = store.joinedFilms([...allFilms(summary).keys()]);
 const tmdbIds = [...joined.values()].map((f) => f.tmdbId);
 const profile = buildProfile(summary, { nReviews, joined });
-const ctx = buildContext({ summary, profile, joined, genres: store.genresFor(tmdbIds), crew: store.crewFor(tmdbIds) });
+const ctx = buildContext({
+  summary, profile, joined,
+  genres: store.genresFor(tmdbIds),
+  crew: store.crewFor(tmdbIds),
+  countries: store.countriesFor(tmdbIds),
+  cast: store.castFor(tmdbIds),
+});
 
 const page = composePage(ctx, profile);
 

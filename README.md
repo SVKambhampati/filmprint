@@ -26,9 +26,9 @@ Early. What exists today is the foundation, not the site:
 | Dataset generator CLI | done — **98.6% match rate on a real 1,889-film export** |
 | Live matcher check (`npm run check:matcher`) | 22/22 against real TMDB |
 | Stat registry + page selector | done, tested |
-| The six hero stats | done, tested |
+| 11 of 28 stats implemented | done, tested |
 | Page composition (`composePage`) | done, tested |
-| Remaining 13 declared stats | not started |
+| Remaining 14 declared stats | 12 declared, 2 blocked |
 | Web UI | not started |
 
 ## Getting started
@@ -51,7 +51,7 @@ you match 70% of a real library then every chart downstream is wrong and no
 amount of design fixes it.
 
 ```bash
-npm test               # 117 tests, no network
+npm test               # 141 tests, no network
 npm run typecheck
 npm run check:matcher  # 22 live cases against real TMDB (~23 API calls)
 npm run build:dataset -- --report    # store contents + top unmatched, no network

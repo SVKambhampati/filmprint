@@ -31,6 +31,11 @@ export type StatContext = {
   userMean: number;
   genres: Map<number, string[]>;
   crew: Map<number, { id: number; name: string; job: string }[]>;
+  /** Fractional country weights per film — see Store.countriesFor. */
+  countries: Map<number, { code: string; weight: number }[]>;
+  cast: Map<number, { id: number; name: string; order: number }[]>;
+  /** filmKey -> rated film, for stats that start from diary entries. */
+  byKey: Map<string, RatedFilm>;
 };
 
 export function buildContext(input: {
@@ -39,6 +44,8 @@ export function buildContext(input: {
   joined: Map<string, JoinedFilm>;
   genres?: Map<number, string[]>;
   crew?: Map<number, { id: number; name: string; job: string }[]>;
+  countries?: Map<number, { code: string; weight: number }[]>;
+  cast?: Map<number, { id: number; name: string; order: number }[]>;
 }): StatContext {
   const rated: RatedFilm[] = [];
   for (const r of input.summary.ratings) {
@@ -54,6 +61,9 @@ export function buildContext(input: {
     userMean: rated.length > 0 ? mean(rated.map((r) => r.rating)) : NaN,
     genres: input.genres ?? new Map(),
     crew: input.crew ?? new Map(),
+    countries: input.countries ?? new Map(),
+    cast: input.cast ?? new Map(),
+    byKey: new Map(rated.map((r) => [r.filmKey, r] as const)),
   };
 }
 
