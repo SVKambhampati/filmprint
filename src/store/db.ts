@@ -332,6 +332,11 @@ export class Store {
     return out;
   }
 
+  /** TMDB keywords for a set of films. */
+  keywordsFor(tmdbIds: readonly number[]): Map<number, string[]> {
+    return this.#childRows(tmdbIds, "SELECT tmdb_id, keyword FROM film_keywords WHERE tmdb_id IN", (r) => r.keyword as string);
+  }
+
   /** Kept crew (director, DoP, composer, editor) for a set of films. */
   crewFor(tmdbIds: readonly number[]): Map<number, { id: number; name: string; job: string }[]> {
     const out = new Map<number, { id: number; name: string; job: string }[]>();

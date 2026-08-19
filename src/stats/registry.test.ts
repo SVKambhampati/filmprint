@@ -47,10 +47,15 @@ test("a blocked stat can never be selected, no matter how much data exists", () 
   for (const d of [...sel.hero, ...sel.secondary]) {
     assert.ok(!blockedIds.has(d.id), `${d.id} is blocked but was selected`);
   }
-  // The known-dangerous ones specifically.
-  assert.ok(blockedIds.has("rating-seasonality"), "seasonality must ship disabled");
-  assert.ok(blockedIds.has("invisible-signature"), "needs director residualisation first");
-  assert.ok(blockedIds.has("studio-capture"), "needs a curated company list");
+  // Named individually only where the blocker is genuinely unresolved work, so
+  // this test does not have to change every time one gets unblocked.
+  assert.ok(blockedIds.has("studio-capture"), "needs a curated company allow-list");
+  assert.ok(blockedIds.has("one-and-done"), "needs a films-per-director reference distribution");
+
+  // Every blocked stat must explain itself, or the block is undebuggable later.
+  for (const b of sel.blocked) {
+    assert.ok(b.reason.length > 40, `${b.def.id} is blocked without a usable reason`);
+  }
 });
 
 test("gated stats report exactly what they are missing", () => {

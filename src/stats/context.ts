@@ -34,6 +34,7 @@ export type StatContext = {
   /** Fractional country weights per film — see Store.countriesFor. */
   countries: Map<number, { code: string; weight: number }[]>;
   cast: Map<number, { id: number; name: string; order: number }[]>;
+  keywords: Map<number, string[]>;
   /** filmKey -> rated film, for stats that start from diary entries. */
   byKey: Map<string, RatedFilm>;
   /**
@@ -54,6 +55,7 @@ export function buildContext(input: {
   crew?: Map<number, { id: number; name: string; job: string }[]>;
   countries?: Map<number, { code: string; weight: number }[]>;
   cast?: Map<number, { id: number; name: string; order: number }[]>;
+  keywords?: Map<number, string[]>;
 }): StatContext {
   const rated: RatedFilm[] = [];
   for (const r of input.summary.ratings) {
@@ -71,6 +73,7 @@ export function buildContext(input: {
     crew: input.crew ?? new Map(),
     countries: input.countries ?? new Map(),
     cast: input.cast ?? new Map(),
+    keywords: input.keywords ?? new Map(),
     byKey: new Map(rated.map((r) => [r.filmKey, r] as const)),
     joined: input.joined,
   };

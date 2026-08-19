@@ -159,10 +159,14 @@ export const STATS: readonly StatDefinition[] = [
     shareable: 4,
     tone: "flattering",
     requires: [{ metric: "nRated", min: G.perPerson }],
-    blocked:
-      "Needs director-effect residualisation first, or it is a director stat with " +
-      "a fancier job title: Deakins looks like your favourite DoP because you like " +
-      "Villeneuve. Requires crew spanning 3+ distinct directors.",
+    caveat:
+      "A crew member only qualifies if their films span 3+ distinct directors, so " +
+      "the signal cannot be carried by one working relationship — otherwise this is " +
+      "a director stat with a fancier job title (Deakins looks like your favourite " +
+      "DoP because you like Villeneuve). Keyword themes are filtered through a " +
+      "blocklist, or every user's recurring theme is 'aftercreditsstinger'. TMDB " +
+      "keyword coverage is thin for non-English and pre-1980 films, so a theme is " +
+      "partly a measure of which films have good metadata.",
   },
   {
     id: "scale-collapse",
@@ -426,10 +430,12 @@ export const STATS: readonly StatDefinition[] = [
     shareable: 4,
     tone: "neutral",
     requires: [{ metric: "nCleanDated", min: G.temporalSlicing }],
-    blocked:
-      "Ships disabled. The MAXIMUM of twelve noisy monthly means is a biased " +
-      "estimator by construction, so a 0.2-star swing is well inside noise. Needs a " +
-      "permutation test on the max-month gap, rendering only when p < 0.05.",
+    caveat:
+      "Renders a finding ONLY when a permutation test on the month range clears " +
+      "p < 0.05, because the maximum of twelve noisy monthly means is a biased " +
+      "estimator by construction. Expect it to report no seasonality for most " +
+      "users — that is the honest answer, not a failure. Runs on the clean-dated " +
+      "subset only, since backfilled dates would manufacture a January spike.",
   },
 ];
 

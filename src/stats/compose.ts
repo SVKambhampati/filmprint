@@ -30,6 +30,8 @@ import { reviewAsymmetry } from "./impl/review-asymmetry.ts";
 import { runtimePrestige } from "./impl/runtime-prestige.ts";
 import { castBlindspot } from "./impl/cast-blindspot.ts";
 import { languageEntryPoints } from "./impl/language-entry-points.ts";
+import { invisibleSignature } from "./impl/invisible-signature.ts";
+import { ratingSeasonality } from "./impl/rating-seasonality.ts";
 
 export type Computable = (ctx: StatContext) => StatResult<unknown>;
 
@@ -55,6 +57,8 @@ export const IMPLEMENTATIONS: Readonly<Record<string, Computable>> = {
   "runtime-prestige": runtimePrestige,
   "cast-blindspot": castBlindspot,
   "language-entry-points": languageEntryPoints,
+  "invisible-signature": invisibleSignature,
+  "rating-seasonality": ratingSeasonality,
 };
 
 export type ComposedStat = {

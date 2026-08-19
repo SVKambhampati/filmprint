@@ -39,6 +39,7 @@ const ctx = buildContext({
   crew: store.crewFor(tmdbIds),
   countries: store.countriesFor(tmdbIds),
   cast: store.castFor(tmdbIds),
+  keywords: store.keywordsFor(tmdbIds),
 });
 
 const page = composePage(ctx, profile);
