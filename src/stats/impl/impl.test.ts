@@ -343,3 +343,87 @@ test("a co-directed film appears once, with co-directors listed", () => {
   assert.equal(out.length, 1, "one film, one entry");
   assert.equal(out[0]!.coDirectors?.length, 2, "the other two are listed as co-directors");
 });
+
+test("harshness reports what the vote-count filter cost, and where", () => {
+  // 100 English films with plenty of votes, 100 Telugu films with almost none.
+  // The filter keeps only the English half, which is exactly the bias to disclose.
+  const en = Array.from({ length: 100 }, (_, i) => ({
+    id: `e${i}`, name: `EN ${i}`, lang: "en", rating: 3, voteAvg: 7, votes: 5000,
+  }));
+  const te = Array.from({ length: 100 }, (_, i) => ({
+    id: `t${i}`, name: `TE ${i}`, lang: "te", rating: 4.5, voteAvg: 7, votes: 12,
+  }));
+  const d = harshnessSplit(ctxOf([...en, ...te])).data;
+
+  assert.equal(d.coverage.rated, 200);
+  assert.equal(d.coverage.compared, 100);
+  assert.equal(d.coverage.excluded, 100);
+  assert.ok(Math.abs(d.coverage.share - 0.5) < 1e-9);
+  assert.equal(d.coverage.worstExcluded[0]!.language, "te", "Telugu lost the most films");
+  assert.equal(d.coverage.worstExcluded[0]!.excluded, 100);
+});
+
+test("harshness discloses low coverage in its copy", () => {
+  // Ratings and crowd scores must both VARY, or tau-b is undefined and the stat
+  // correctly declines to name a quadrant.
+  const en = Array.from({ length: 100 }, (_, i) => {
+    const voteAvg = 5.5 + (i % 25) * 0.1;
+    return {
+      id: `e${i}`, name: `EN ${i}`, lang: "en", voteAvg, votes: 5000,
+      rating: Math.max(0.5, Math.round((expectedRating(voteAvg) - 0.8) * 2) / 2),
+    };
+  });
+  const te = Array.from({ length: 100 }, (_, i) => ({
+    id: `t${i}`, name: `TE ${i}`, lang: "te", rating: 4.5, voteAvg: 6 + (i % 10) * 0.1, votes: 12,
+  }));
+  const r = harshnessSplit(ctxOf([...en, ...te]));
+  assert.equal(r.finding, "strong");
+  assert.ok(/100 of your 200 rated films/.test(r.headline), r.headline);
+  assert.ok(/Telugu/.test(r.headline), "must name where the loss fell: " + r.headline);
+});
+
+test("harshness splits by language and headlines a real divergence", () => {
+  // Harsh on English, generous on Hindi. Crowd scores vary within each group so
+  // rank correlation is defined.
+  const group = (prefix: string, lang: string, shift: number) =>
+    Array.from({ length: 60 }, (_, i) => {
+      const voteAvg = 6.0 + (i % 20) * 0.1;
+      return {
+        id: `${prefix}${i}`, name: `${prefix.toUpperCase()} ${i}`, lang, voteAvg, votes: 5000,
+        rating: Math.min(5, Math.max(0.5, Math.round((expectedRating(voteAvg) + shift) * 2) / 2)),
+      };
+    });
+
+  const r = harshnessSplit(ctxOf([...group("e", "en", -1.0), ...group("h", "hi", 1.0)]));
+  const d = r.data;
+
+  assert.equal(d.byLanguage.length, 2);
+  assert.ok(d.divergence, "a 2-star gap between languages must be detected");
+  assert.equal(d.divergence!.harsher.language, "en");
+  assert.equal(d.divergence!.kinder.language, "hi");
+  assert.ok(d.divergence!.gap > 1.5, `expected a large gap, got ${d.divergence!.gap}`);
+  assert.equal(r.finding, "strong");
+  assert.ok(/harsher on English-language films than on Hindi/.test(r.headline), r.headline);
+});
+
+test("a language below the minimum sample gets no verdict of its own", () => {
+  const en = Array.from({ length: 80 }, (_, i) => ({
+    id: `e${i}`, name: `EN ${i}`, lang: "en", rating: 3, voteAvg: 7, votes: 5000,
+  }));
+  // Only 10 French films: too few to judge separately.
+  const fr = Array.from({ length: 10 }, (_, i) => ({
+    id: `f${i}`, name: `FR ${i}`, lang: "fr", rating: 5, voteAvg: 7, votes: 5000,
+  }));
+  const d = harshnessSplit(ctxOf([...en, ...fr])).data;
+  assert.deepEqual(d.byLanguage.map((l) => l.language), ["en"]);
+  assert.equal(d.divergence, null, "one group cannot diverge from itself");
+});
+
+test("uniform coverage produces no disclosure clause", () => {
+  const films = Array.from({ length: 120 }, (_, i) => ({
+    id: `f${i}`, name: `F ${i}`, lang: "en", rating: 3, voteAvg: 7, votes: 5000,
+  }));
+  const r = harshnessSplit(ctxOf(films));
+  const copy = r.finding === "none" ? r.emptyCopy : r.headline;
+  assert.ok(!/rests on/.test(copy), "nothing was excluded, so say nothing: " + copy);
+});

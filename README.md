@@ -130,6 +130,19 @@ bias correction on every entropy, a permutation test on anything that reports th
 extreme of many comparisons, and a sample-size gate from `src/hygiene/thresholds.ts`.
 A misleading stat costs more trust than a missing one earns.
 
+**TMDB's crowd is not a usable reference for every library.** The crowd-comparison
+stats need a film to have enough votes for its average to mean anything, and
+TMDB's voter base is heavily English-language. On the export used to build this,
+that filter removed **516 of 522 Telugu films and 113 of 118 Tamil films, against
+13 of 958 English ones** — so a verdict about "your taste" was really a verdict
+about 55% of a library, chosen along a language line.
+
+The stat now discloses its own coverage in its copy and computes a separate
+verdict per language above a minimum sample, headlining a divergence when the
+groups disagree. When a language cannot be evaluated at all, that is stated rather
+than averaged over. The durable fix is a reference distribution built from
+consenting users, which is the same corpus a fitted calibration curve needs.
+
 ## Known gaps
 
 - **`src/stats/calibration.ts` constants are provisional.** They are seeded from

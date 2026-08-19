@@ -12,6 +12,7 @@ import { parseCsv } from "../hygiene/csv.ts";
 import { buildProfile } from "../stats/profile.ts";
 import { buildContext } from "../stats/context.ts";
 import { composePage } from "../stats/compose.ts";
+import { harshnessSplit } from "../stats/impl/harshness-split.ts";
 
 const dir = process.argv[2];
 if (!dir || !existsSync(dir)) {
@@ -35,6 +36,9 @@ const profile = buildProfile(summary, { nReviews, joined });
 const ctx = buildContext({ summary, profile, joined, genres: store.genresFor(tmdbIds), crew: store.crewFor(tmdbIds) });
 
 const page = composePage(ctx, profile);
+
+// Coverage detail for the crowd stats, since it qualifies every claim they make.
+const hs = harshnessSplit(ctx).data;
 
 /** Wrap prose to a readable width so the terminal output stays legible. */
 function wrap(text: string, width = 76, indent = "      "): string {
@@ -65,6 +69,18 @@ console.log(`\n════ SECONDARY (${page.secondary.length}) ═════
 for (const c of page.secondary) {
   console.log(`\n  ${MARK[c.finding]} ${c.title}   [${c.finding}]`);
   console.log(wrap(c.copy));
+}
+
+console.log(`\n════ CROWD COVERAGE ══════════════════════════════════════`);
+console.log(`  compared ${hs.coverage.compared} of ${hs.coverage.rated} rated films (${(hs.coverage.share * 100).toFixed(0)}%)`);
+for (const w of hs.coverage.worstExcluded) {
+  console.log(`    ${w.language.padEnd(4)} lost ${String(w.excluded).padStart(4)} of ${w.total}`);
+}
+if (hs.byLanguage.length > 0) {
+  console.log("  per-language verdicts:");
+  for (const l of hs.byLanguage) {
+    console.log(`    ${l.language.padEnd(4)} n=${String(l.n).padStart(4)}  offset ${l.offset >= 0 ? "+" : ""}${l.offset.toFixed(2)}★  tau ${l.rankAgreement.toFixed(3)}`);
+  }
 }
 
 console.log(`\n════ NOT SHOWN ═══════════════════════════════════════════`);

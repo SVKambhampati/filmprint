@@ -114,7 +114,9 @@ export const STATS: readonly StatDefinition[] = [
     requires: [{ metric: "nRatedWithCrowd", min: G.crowdComparison }],
     caveat:
       "The harshness axis uses a provisional calibration curve, not a fitted one. " +
-      "Report the quadrant, never a precise number of stars.",
+      "Report the quadrant, never a precise number of stars. TMDB vote counts are " +
+      "English-biased, so this rests on the better-known part of a library — the " +
+      "stat discloses its own coverage and splits by language when they disagree.",
   },
   {
     id: "taste-crystallization",
