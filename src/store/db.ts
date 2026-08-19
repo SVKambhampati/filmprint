@@ -129,6 +129,22 @@ CREATE TABLE IF NOT EXISTS unmatched (
   note       TEXT
 );
 
+-- Collection part lists, fetched separately from films: a user's own library
+-- cannot tell you how many films a franchise actually has.
+CREATE TABLE IF NOT EXISTS collections (
+  collection_id INTEGER PRIMARY KEY,
+  name          TEXT    NOT NULL,
+  fetched_at    TEXT    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS collection_parts (
+  collection_id INTEGER NOT NULL REFERENCES collections(collection_id) ON DELETE CASCADE,
+  tmdb_id       INTEGER NOT NULL,
+  title         TEXT    NOT NULL,
+  release_date  TEXT,
+  PRIMARY KEY (collection_id, tmdb_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_crew_person   ON film_crew(person_id);
 CREATE INDEX IF NOT EXISTS idx_cast_person   ON film_cast(person_id);
 CREATE INDEX IF NOT EXISTS idx_films_collect ON films(collection_id);
@@ -328,6 +344,56 @@ export class Store {
         list.push({ id: r.person_id, name: r.name, order: r.billing_order });
         out.set(r.tmdb_id, list);
       }
+    });
+    return out;
+  }
+
+  hasCollection(collectionId: number): boolean {
+    return this.db.prepare("SELECT 1 FROM collections WHERE collection_id = ?").get(collectionId) !== undefined;
+  }
+
+  upsertCollection(c: { id: number; name: string; parts: { id: number; title: string; releaseDate: string | null }[] }): void {
+    this.db
+      .prepare(
+        `INSERT INTO collections (collection_id, name, fetched_at) VALUES (?, ?, ?)
+         ON CONFLICT(collection_id) DO UPDATE SET name = excluded.name, fetched_at = excluded.fetched_at`,
+      )
+      .run(c.id, c.name, new Date().toISOString());
+
+    // Replaced wholesale: TMDB collections gain and lose entries over time.
+    this.db.prepare("DELETE FROM collection_parts WHERE collection_id = ?").run(c.id);
+    const insert = this.db.prepare(
+      "INSERT OR IGNORE INTO collection_parts (collection_id, tmdb_id, title, release_date) VALUES (?, ?, ?, ?)",
+    );
+    for (const p of c.parts) insert.run(c.id, p.id, p.title, p.releaseDate);
+  }
+
+  /** Part lists for a set of collections. */
+  collectionPartsFor(collectionIds: readonly number[]): Map<number, { tmdbId: number; title: string; releaseDate: string | null }[]> {
+    const out = new Map<number, { tmdbId: number; title: string; releaseDate: string | null }[]>();
+    this.#eachChunk(collectionIds, (chunk, placeholders) => {
+      const rows = this.db
+        .prepare(
+          `SELECT collection_id, tmdb_id, title, release_date FROM collection_parts
+           WHERE collection_id IN (${placeholders})`,
+        )
+        .all(...chunk) as { collection_id: number; tmdb_id: number; title: string; release_date: string | null }[];
+      for (const r of rows) {
+        const list = out.get(r.collection_id) ?? [];
+        list.push({ tmdbId: r.tmdb_id, title: r.title, releaseDate: r.release_date });
+        out.set(r.collection_id, list);
+      }
+    });
+    return out;
+  }
+
+  collectionNames(collectionIds: readonly number[]): Map<number, string> {
+    const out = new Map<number, string>();
+    this.#eachChunk(collectionIds, (chunk, placeholders) => {
+      const rows = this.db
+        .prepare(`SELECT collection_id, name FROM collections WHERE collection_id IN (${placeholders})`)
+        .all(...chunk) as { collection_id: number; name: string }[];
+      for (const r of rows) out.set(r.collection_id, r.name);
     });
     return out;
   }

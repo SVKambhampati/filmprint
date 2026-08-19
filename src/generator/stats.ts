@@ -32,6 +32,7 @@ const summary = normalizeExport({
 const store = new Store(process.env.FILMPRINT_DB ?? "data/filmprint.db");
 const joined = store.joinedFilms([...allFilms(summary).keys()]);
 const tmdbIds = [...joined.values()].map((f) => f.tmdbId);
+const collectionIds = [...new Set([...joined.values()].map((f) => f.collectionId).filter((c): c is number => c != null))];
 const profile = buildProfile(summary, { joined });
 const ctx = buildContext({
   summary, profile, joined,
@@ -40,6 +41,8 @@ const ctx = buildContext({
   countries: store.countriesFor(tmdbIds),
   cast: store.castFor(tmdbIds),
   keywords: store.keywordsFor(tmdbIds),
+  collectionParts: store.collectionPartsFor(collectionIds),
+  collectionNames: store.collectionNames(collectionIds),
 });
 
 const page = composePage(ctx, profile);

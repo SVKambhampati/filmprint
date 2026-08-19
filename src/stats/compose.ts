@@ -34,6 +34,7 @@ import { invisibleSignature } from "./impl/invisible-signature.ts";
 import { ratingSeasonality } from "./impl/rating-seasonality.ts";
 import { zeitgeistLag } from "./impl/zeitgeist-lag.ts";
 import { ipShare } from "./impl/ip-share.ts";
+import { completionistIndex } from "./impl/completionist-index.ts";
 
 export type Computable = (ctx: StatContext) => StatResult<unknown>;
 
@@ -63,6 +64,7 @@ export const IMPLEMENTATIONS: Readonly<Record<string, Computable>> = {
   "rating-seasonality": ratingSeasonality,
   "zeitgeist-lag": zeitgeistLag,
   "ip-share": ipShare,
+  "completionist-index": completionistIndex,
 };
 
 export type ComposedStat = {

@@ -35,6 +35,9 @@ export type StatContext = {
   countries: Map<number, { code: string; weight: number }[]>;
   cast: Map<number, { id: number; name: string; order: number }[]>;
   keywords: Map<number, string[]>;
+  /** collectionId -> every film TMDB lists in that collection. */
+  collectionParts: Map<number, { tmdbId: number; title: string; releaseDate: string | null }[]>;
+  collectionNames: Map<number, string>;
   /** filmKey -> rated film, for stats that start from diary entries. */
   byKey: Map<string, RatedFilm>;
   /**
@@ -56,6 +59,8 @@ export function buildContext(input: {
   countries?: Map<number, { code: string; weight: number }[]>;
   cast?: Map<number, { id: number; name: string; order: number }[]>;
   keywords?: Map<number, string[]>;
+  collectionParts?: Map<number, { tmdbId: number; title: string; releaseDate: string | null }[]>;
+  collectionNames?: Map<number, string>;
 }): StatContext {
   const rated: RatedFilm[] = [];
   for (const r of input.summary.ratings) {
@@ -74,6 +79,8 @@ export function buildContext(input: {
     countries: input.countries ?? new Map(),
     cast: input.cast ?? new Map(),
     keywords: input.keywords ?? new Map(),
+    collectionParts: input.collectionParts ?? new Map(),
+    collectionNames: input.collectionNames ?? new Map(),
     byKey: new Map(rated.map((r) => [r.filmKey, r] as const)),
     joined: input.joined,
   };

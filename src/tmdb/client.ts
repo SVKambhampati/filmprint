@@ -112,7 +112,11 @@ export class TmdbClient {
   }
 
   /** Part list for a collection, used by the completionist stat. */
-  async collection(id: number): Promise<{ id: number; parts: { id: number; release_date: string }[] }> {
+  async collection(id: number): Promise<{
+    id: number;
+    name?: string;
+    parts?: { id: number; title?: string; release_date?: string | null }[];
+  }> {
     return this.#get(`/collection/${id}`);
   }
 }

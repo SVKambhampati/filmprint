@@ -141,6 +141,45 @@ async function main(): Promise<void> {
   });
   process.stdout.write("\n");
 
+  // Collection part lists, for the completionist stat. A user's own library cannot
+  // say how many films a franchise actually has, so these are fetched separately.
+  const collectionIds = [
+    ...new Set(
+      (store.db.prepare("SELECT DISTINCT collection_id AS id FROM films WHERE collection_id IS NOT NULL").all() as { id: number }[])
+        .map((r) => r.id),
+    ),
+  ].filter((id) => refetch || !store.hasCollection(id));
+
+  if (collectionIds.length > 0) {
+    console.log(`\n── collections (${collectionIds.length} to fetch) ──────────────────────`);
+    let cDone = 0;
+    let cErrors = 0;
+    await mapLimit(collectionIds, 8, async (id) => {
+      try {
+        const c = await client.collection(id);
+        store.transaction(() =>
+          store.upsertCollection({
+            id,
+            name: c.name ?? `Collection ${id}`,
+            parts: (c.parts ?? []).map((p) => ({
+              id: p.id,
+              title: p.title ?? "",
+              releaseDate: p.release_date && p.release_date.length > 0 ? p.release_date : null,
+            })),
+          }),
+        );
+      } catch {
+        cErrors++;
+      }
+      cDone++;
+      if (cDone % 25 === 0 || cDone === collectionIds.length) {
+        process.stdout.write(`\r  ${cDone}/${collectionIds.length}  ·  ${client.callCount} API calls   `);
+      }
+    });
+    process.stdout.write("\n");
+    if (cErrors > 0) console.log(`  ${cErrors} collections failed to fetch`);
+  }
+
   const unresolved = inputs.filter((i) => {
     const hit = store.lookupFilm(i.filmKey);
     return !hit || hit.tmdbId == null;
