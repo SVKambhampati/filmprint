@@ -26,6 +26,10 @@ import { impossibleDays } from "./impl/impossible-days.ts";
 import { popularityCorrelation } from "./impl/popularity-correlation.ts";
 import { watchlistGraveyard } from "./impl/watchlist-graveyard.ts";
 import { ratingBarrier } from "./impl/rating-barrier.ts";
+import { reviewAsymmetry } from "./impl/review-asymmetry.ts";
+import { runtimePrestige } from "./impl/runtime-prestige.ts";
+import { castBlindspot } from "./impl/cast-blindspot.ts";
+import { languageEntryPoints } from "./impl/language-entry-points.ts";
 
 export type Computable = (ctx: StatContext) => StatResult<unknown>;
 
@@ -47,6 +51,10 @@ export const IMPLEMENTATIONS: Readonly<Record<string, Computable>> = {
   "popularity-correlation": popularityCorrelation,
   "watchlist-graveyard": watchlistGraveyard,
   "the-45-barrier": ratingBarrier,
+  "review-asymmetry": reviewAsymmetry,
+  "runtime-prestige": runtimePrestige,
+  "cast-blindspot": castBlindspot,
+  "language-entry-points": languageEntryPoints,
 };
 
 export type ComposedStat = {

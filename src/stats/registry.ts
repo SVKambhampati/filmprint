@@ -203,9 +203,13 @@ export const STATS: readonly StatDefinition[] = [
     shareable: 3,
     tone: "unflattering",
     requires: [{ metric: "nRated", min: G.perPerson }],
-    caveat:
-      "Raw percentage is a film-count proxy. Must be reported as deviation from a " +
-      "simulated null, not as a raw share.",
+    blocked:
+      "The raw share is a library-size proxy wearing a personality-insight costume: " +
+      "at 40 films almost everyone is one-and-done. Reporting it honestly needs a " +
+      "deviation from a null built on how films are actually distributed across " +
+      "directors, and that reference distribution is a separate dataset build " +
+      "(TMDB person credits for every director in the library). Until it exists " +
+      "this stat can only mislead.",
   },
   {
     id: "the-45-barrier",

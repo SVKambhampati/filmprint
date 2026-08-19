@@ -95,16 +95,39 @@ export const COVERAGE_DISCLOSE_BELOW = 0.85;
 /** Offset gap between languages large enough to be worth headlining, in stars. */
 export const DIVERGENCE_STARS = 0.4;
 
-/** ISO 639-1 names for the languages that actually show up in these stats. */
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English-language", te: "Telugu", hi: "Hindi", ta: "Tamil", ml: "Malayalam",
-  kn: "Kannada", ko: "Korean", ja: "Japanese", fr: "French", es: "Spanish",
-  de: "German", it: "Italian", zh: "Chinese", cn: "Chinese", ru: "Russian",
-  pt: "Portuguese", sv: "Swedish", da: "Danish", fa: "Persian", th: "Thai",
+/**
+ * ISO 639-1 code to a readable language name.
+ *
+ * Uses Intl.DisplayNames rather than a hand-maintained table, which was already
+ * failing: an Indonesian film rendered as "ID" in real output because `id` was
+ * not in the list. ICU knows all ~180 codes, so the only entries kept here are
+ * ones where the plain language name reads badly in a sentence.
+ */
+const LANGUAGE_OVERRIDES: Record<string, string> = {
+  // "52% of what you watch is English" is ambiguous between the language and the
+  // country, and the field is the language.
+  en: "English-language",
+  cn: "Cantonese",
+  xx: "no dialogue",
 };
 
+let displayNames: Intl.DisplayNames | null = null;
+
 export function languageName(code: string): string {
-  return LANGUAGE_NAMES[code] ?? code.toUpperCase();
+  const key = code.toLowerCase();
+  const override = LANGUAGE_OVERRIDES[key];
+  if (override) return override;
+  if (!key || key === "??") return "an unknown language";
+
+  try {
+    displayNames ??= new Intl.DisplayNames(["en"], { type: "language" });
+    const name = displayNames.of(key);
+    // Intl returns the input unchanged when it does not recognise the code.
+    if (name && name.toLowerCase() !== key) return name;
+  } catch {
+    // No ICU data: fall through to the code itself.
+  }
+  return code.toUpperCase();
 }
 
 export function harshnessSplit(ctx: StatContext): StatResult<HarshnessSplit> {

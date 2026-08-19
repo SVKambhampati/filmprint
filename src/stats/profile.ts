@@ -21,8 +21,6 @@ const MIN_FILMS_PER_YEAR = 40;
 const REWATCH_BAND: readonly [number, number] = [2.5, 4.0];
 
 export type ProfileExtras = {
-  /** Rows in reviews.csv with non-empty review text. */
-  nReviews?: number;
   /** Metadata for the user's films, from Store.joinedFilms. */
   joined?: Map<string, JoinedFilm>;
 };
@@ -98,7 +96,7 @@ export function buildProfile(summary: ExportSummary, extras: ProfileExtras = {})
     nWatchlistReleased,
     nRewatchEntries,
     nPairedRewatch,
-    nReviews: extras.nReviews ?? 0,
+    nReviews: summary.reviews.length,
     nTaggedEntries,
     nRatedWithCrowd,
     nDistinctFilms: summary.audit.distinctFilms,

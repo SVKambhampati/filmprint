@@ -35,13 +35,19 @@ test("no implementation exists for a blocked stat", () => {
   }
 });
 
-test("declared-but-unbuilt stats are reported, not silently dropped", () => {
+test("every declared stat lands in exactly one bucket", () => {
+  // The durable invariant: a stat can never go missing silently, whatever the
+  // ratio of built to unbuilt happens to be.
   const { ctx, profile } = ctxOf(500);
   const page = composePage(ctx, profile);
-  assert.ok(page.unimplemented.length > 0, "most of the 28 are not built yet");
   const accounted =
     page.hero.length + page.secondary.length + page.gated.length + page.blocked.length + page.unimplemented.length;
   assert.equal(accounted, STATS.length, "every declared stat must land in exactly one bucket");
+
+  // Anything reported as unbuilt must genuinely have no implementation.
+  for (const def of page.unimplemented) {
+    assert.ok(!IMPLEMENTATIONS[def.id], `${def.id} is wired up but reported as unbuilt`);
+  }
 });
 
 test("a null result never takes a hero slot but still appears on the page", () => {

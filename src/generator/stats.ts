@@ -26,13 +26,13 @@ const summary = normalizeExport({
   ratings: await read("ratings.csv"),
   watched: await read("watched.csv"),
   watchlist: await read("watchlist.csv"),
+  reviews: await read("reviews.csv"),
 });
-const nReviews = parseCsv(await read("reviews.csv")).filter((r) => (r["review"] ?? "").trim()).length;
 
 const store = new Store(process.env.FILMPRINT_DB ?? "data/filmprint.db");
 const joined = store.joinedFilms([...allFilms(summary).keys()]);
 const tmdbIds = [...joined.values()].map((f) => f.tmdbId);
-const profile = buildProfile(summary, { nReviews, joined });
+const profile = buildProfile(summary, { joined });
 const ctx = buildContext({
   summary, profile, joined,
   genres: store.genresFor(tmdbIds),

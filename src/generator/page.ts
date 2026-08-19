@@ -13,7 +13,6 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { Store } from "../store/db.ts";
 import { normalizeExport, allFilms } from "../hygiene/normalize.ts";
-import { parseCsv } from "../hygiene/csv.ts";
 import { buildProfile } from "../stats/profile.ts";
 import { selectStats, headroomOf, type SampleProfile } from "../stats/registry.ts";
 
@@ -38,14 +37,13 @@ const [diary, ratings, watched, watchlist, reviews] = await Promise.all([
   readIfPresent(exportDir, "reviews.csv"),
 ]);
 
-const summary = normalizeExport({ diary, ratings, watched, watchlist });
-const nReviews = parseCsv(reviews).filter((r) => (r["review"] ?? "").trim().length > 0).length;
+const summary = normalizeExport({ diary, ratings, watched, watchlist, reviews });
 
 const store = new Store(DB_PATH);
 const keys = [...allFilms(summary).keys()];
 const joined = store.joinedFilms(keys);
 
-const profile = buildProfile(summary, { nReviews, joined });
+const profile = buildProfile(summary, { joined });
 const sel = selectStats(profile);
 
 console.log("── sample profile ───────────────────────────────────");

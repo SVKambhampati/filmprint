@@ -69,6 +69,25 @@ export type DiaryEntry = {
 };
 
 export type RatingEntry = { filmKey: FilmKey; filmId: string; name: string; year: number | null; rating: number };
+
+/**
+ * A written review.
+ *
+ * reviews.csv carries DIARY ENTRY ids, not film ids — verified against a real
+ * export: 72 of 72 matched diary entries, none matched a film id. So reviews join
+ * to the diary exactly, and inherit its film key rather than being re-matched.
+ */
+export type ReviewEntry = {
+  entryId: string;
+  /** Inherited from the diary entry, or a title+year fallback if that join missed. */
+  filmKey: FilmKey;
+  name: string;
+  year: number | null;
+  rating: number | null;
+  /** Plain text: HTML stripped, entities decoded, whitespace collapsed. */
+  text: string;
+  wordCount: number;
+};
 export type WatchedEntry = { filmKey: FilmKey; filmId: string; name: string; year: number | null; loggedDate: string | null };
 export type WatchlistEntry = { filmKey: FilmKey; filmId: string; name: string; year: number | null; addedDate: string };
 
@@ -86,6 +105,7 @@ export type Audit = {
   cleanDatedCount: number;
   bulkLoggedCount: number;
   ratingsRows: number;
+  reviewRows: number;
   watchedRows: number;
   watchlistRows: number;
   distinctFilms: number;
@@ -98,6 +118,7 @@ export type ExportSummary = {
   ratings: RatingEntry[];
   watched: WatchedEntry[];
   watchlist: WatchlistEntry[];
+  reviews: ReviewEntry[];
   audit: Audit;
 };
 
@@ -130,6 +151,30 @@ function daysBetween(later: string, earlier: string): number {
 
 function parseTags(raw: string): string[] {
   return raw.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
+}
+
+/**
+ * Letterboxd reviews accept HTML, and a raw word count over markup counts tags
+ * as words. Strips tags, decodes the handful of entities that actually appear,
+ * and collapses whitespace.
+ */
+export function reviewToPlainText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function countWords(text: string): number {
+  const t = text.trim();
+  return t.length === 0 ? 0 : t.split(/\s+/).length;
 }
 
 /**
@@ -206,6 +251,7 @@ export function normalizeExport(files: {
   ratings?: string;
   watched?: string;
   watchlist?: string;
+  reviews?: string;
 }): ExportSummary {
   const { ratings, watched, watchlist } = parseFilmLists(
     files.ratings ?? "", files.watched ?? "", files.watchlist ?? "",
@@ -300,6 +346,27 @@ export function normalizeExport(files: {
     return { ...d, bulkLogged, placeholderDate, cleanDated: plausibleLag && !bulkLogged && !placeholderDate };
   });
 
+  // Reviews join to the diary by entry id, so they inherit the diary's film key.
+  const diaryByEntry = new Map(diary.map((e) => [e.entryId, e] as const));
+  const reviews: ReviewEntry[] = [];
+  for (const r of parseCsv(files.reviews ?? "")) {
+    const entryId = letterboxdId(r["letterboxd uri"] ?? "");
+    const raw = r["review"] ?? "";
+    if (!entryId || raw.trim() === "") continue;
+    const name = (r["name"] ?? "").trim();
+    const year = parseYear(r["year"] ?? "");
+    const text = reviewToPlainText(raw);
+    reviews.push({
+      entryId,
+      filmKey: diaryByEntry.get(entryId)?.filmKey ?? filmKeyFromTitleYear(name, year),
+      name,
+      year,
+      rating: parseRating(r["rating"] ?? ""),
+      text,
+      wordCount: countWords(text),
+    });
+  }
+
   const ratedEntries = diary.filter((e) => e.rating != null).length;
   const joined = diary.filter((e) => e.filmId != null).length;
   const distinctFilms = allFilms({ diary, ratings, watched, watchlist }).size;
@@ -309,6 +376,7 @@ export function normalizeExport(files: {
     ratings,
     watched,
     watchlist,
+    reviews,
     audit: {
       diaryRowsRead: rows.length,
       diaryEntriesKept: diary.length,
@@ -322,6 +390,7 @@ export function normalizeExport(files: {
       cleanDatedCount: diary.filter((e) => e.cleanDated).length,
       bulkLoggedCount: diary.filter((e) => e.bulkLogged).length,
       ratingsRows: ratings.length,
+      reviewRows: reviews.length,
       watchedRows: watched.length,
       watchlistRows: watchlist.length,
       distinctFilms,
