@@ -199,3 +199,61 @@ body {
 footer { margin-top: 5rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); font-size: 0.75rem; color: var(--ink-faint); }
 footer p { margin: 0.4rem 0; }
 footer a { color: var(--ink-dim); }
+
+/* ============ visualisation layer ============ */
+
+.card-viz { margin: 0.25rem 0 1.1rem; }
+
+.viz { margin: 0; }
+.viz-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.viz-title { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 0.6rem; }
+.viz-note { margin: 0.7rem 0 0; font-size: 0.72rem; color: var(--ink-faint); line-height: 1.45; }
+
+.viz-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 1.1rem; font-size: 0.72rem; color: var(--ink-dim); margin: 0.2rem 0 0.7rem; }
+.viz-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.viz-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+/* hero figure: sans, proportional figures, one per card */
+.hero-figure { margin: 0.4rem 0 1rem; }
+.hero-figure b { display: block; font-size: 3rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1; color: var(--ink); }
+.hero-figure b i { font-size: 1rem; font-style: normal; font-weight: 400; color: var(--ink-faint); letter-spacing: 0; margin-left: 0.35rem; }
+.hero-figure span { display: block; margin-top: 0.5rem; font-size: 0.78rem; color: var(--ink-faint); }
+
+.figure-row { display: flex; gap: 2.25rem; flex-wrap: wrap; }
+.figure-row .hero-figure b { font-size: 2.1rem; }
+
+/* meters: fill carries state, track is a recessive step of the same plane */
+.meters { list-style: none; margin: 0.5rem 0 0; padding: 0; display: grid; gap: 0.5rem; }
+.meters li { display: grid; grid-template-columns: 10rem 1fr 3rem; align-items: center; gap: 0.7rem; font-size: 0.76rem; }
+.meter-label { color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meter-track { height: 6px; background: #2c2c2a; border-radius: 3px; overflow: hidden; }
+.meter-track i { display: block; height: 100%; border-radius: 3px; }
+.meter-value { color: var(--ink-faint); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* posters: the image is the data */
+.poster-grid { list-style: none; margin: 0.75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 0.75rem; }
+.poster-grid li { font-size: 0.68rem; min-width: 0; }
+.poster-grid img { width: 100%; height: auto; aspect-ratio: 185 / 278; object-fit: cover; border-radius: 3px; background: #221f1d; display: block; }
+.poster-blank { display: flex; align-items: center; justify-content: center; aspect-ratio: 185 / 278; border: 1px solid var(--rule); border-radius: 3px; padding: 0.4rem; text-align: center; color: var(--ink-faint); font-size: 0.62rem; }
+.poster-grid b { display: block; margin-top: 0.4rem; font-weight: 500; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.poster-grid em { display: block; font-style: normal; color: var(--ink-faint); }
+
+.card-copy { margin: 0; color: var(--ink-dim); font-size: 0.9rem; }
+
+.caveat-toggle {
+  margin-top: 0.85rem; background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink-faint); text-decoration: underline; text-underline-offset: 3px;
+}
+.caveat-toggle:hover { color: var(--accent); }
+
+.card-wide { grid-column: 1 / -1; }
+
+/* paired comparison — each measure scaled within its own row */
+.pairs { margin-top: 0.5rem; }
+.pair { display: grid; grid-template-columns: 9.5rem 1fr; gap: 0.8rem; align-items: center; margin-bottom: 0.7rem; }
+.pair-measure { font-size: 0.74rem; color: var(--ink-faint); }
+.pair-rows { display: grid; gap: 3px; }
+.pair-row { display: flex; align-items: center; gap: 0.55rem; }
+.pair-row i { display: block; height: 7px; border-radius: 0 4px 4px 0; min-width: 2px; }
+.pair-row b { font-size: 0.76rem; font-weight: 500; color: var(--ink-dim); font-variant-numeric: tabular-nums; }

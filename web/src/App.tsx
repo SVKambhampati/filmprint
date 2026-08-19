@@ -163,8 +163,10 @@ function Report({ analysis, onReset }: { analysis: Analysis; onReset: () => void
 
       <p className="section-label">What your films say about you</p>
       <div className="hero-grid">
-        {page.hero.map((s) => (
-          <StatCard key={s.def.id} stat={s} showCaveat />
+        {page.hero.map((s, i) => (
+          // The lead stat gets the full width: it carries the headline finding and
+          // its chart is the one worth reading at size.
+          <StatCard key={s.def.id} stat={s} wide={i === 0} />
         ))}
       </div>
 
