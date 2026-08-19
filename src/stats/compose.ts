@@ -32,6 +32,8 @@ import { castBlindspot } from "./impl/cast-blindspot.ts";
 import { languageEntryPoints } from "./impl/language-entry-points.ts";
 import { invisibleSignature } from "./impl/invisible-signature.ts";
 import { ratingSeasonality } from "./impl/rating-seasonality.ts";
+import { zeitgeistLag } from "./impl/zeitgeist-lag.ts";
+import { ipShare } from "./impl/ip-share.ts";
 
 export type Computable = (ctx: StatContext) => StatResult<unknown>;
 
@@ -59,6 +61,8 @@ export const IMPLEMENTATIONS: Readonly<Record<string, Computable>> = {
   "language-entry-points": languageEntryPoints,
   "invisible-signature": invisibleSignature,
   "rating-seasonality": ratingSeasonality,
+  "zeitgeist-lag": zeitgeistLag,
+  "ip-share": ipShare,
 };
 
 export type ComposedStat = {
