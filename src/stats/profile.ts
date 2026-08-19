@@ -81,12 +81,21 @@ export function buildProfile(summary: ExportSummary, extras: ProfileExtras = {})
 
   const nTaggedEntries = diary.filter((e) => e.tags.length > 0).length;
 
+  // Released watchlist films. An unreleased film cannot be "neglected".
+  const today = new Date().toISOString().slice(0, 10);
+  let nWatchlistReleased = 0;
+  for (const w of watchlist) {
+    const f = joined.get(w.filmKey);
+    if (f?.releaseDate && f.releaseDate <= today) nWatchlistReleased++;
+  }
+
   return {
     nRated: ratings.length,
     nWatched: watched.length,
     nDiary: diary.length,
     nCleanDated: diary.filter((e) => e.cleanDated).length,
     nWatchlist: watchlist.length,
+    nWatchlistReleased,
     nRewatchEntries,
     nPairedRewatch,
     nReviews: extras.nReviews ?? 0,
@@ -101,7 +110,7 @@ export function buildProfile(summary: ExportSummary, extras: ProfileExtras = {})
 /** A profile of all zeros, for tests and for the empty-export case. */
 export function emptyProfile(): SampleProfile {
   return {
-    nRated: 0, nWatched: 0, nDiary: 0, nCleanDated: 0, nWatchlist: 0,
+    nRated: 0, nWatched: 0, nDiary: 0, nCleanDated: 0, nWatchlist: 0, nWatchlistReleased: 0,
     nRewatchEntries: 0, nPairedRewatch: 0, nReviews: 0, nTaggedEntries: 0,
     nRatedWithCrowd: 0, nDistinctFilms: 0, nYearsWithData: 0, nCollectionsEntered: 0,
   };

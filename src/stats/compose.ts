@@ -24,6 +24,8 @@ import { genreConviction } from "./impl/genre-conviction.ts";
 import { halfStarTell } from "./impl/half-star-tell.ts";
 import { impossibleDays } from "./impl/impossible-days.ts";
 import { popularityCorrelation } from "./impl/popularity-correlation.ts";
+import { watchlistGraveyard } from "./impl/watchlist-graveyard.ts";
+import { ratingBarrier } from "./impl/rating-barrier.ts";
 
 export type Computable = (ctx: StatContext) => StatResult<unknown>;
 
@@ -43,6 +45,8 @@ export const IMPLEMENTATIONS: Readonly<Record<string, Computable>> = {
   "half-star-tell": halfStarTell,
   "bulk-log-confession": impossibleDays,
   "popularity-correlation": popularityCorrelation,
+  "watchlist-graveyard": watchlistGraveyard,
+  "the-45-barrier": ratingBarrier,
 };
 
 export type ComposedStat = {

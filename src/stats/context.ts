@@ -36,6 +36,14 @@ export type StatContext = {
   cast: Map<number, { id: number; name: string; order: number }[]>;
   /** filmKey -> rated film, for stats that start from diary entries. */
   byKey: Map<string, RatedFilm>;
+  /**
+   * EVERY resolved film, rated or not.
+   *
+   * Needed because `rated` and `byKey` cover only ratings.csv. Watchlist films are
+   * unwatched and therefore unrated, so a stat that looks them up in `byKey` finds
+   * nothing and silently treats the whole list as unknown.
+   */
+  joined: Map<string, JoinedFilm>;
 };
 
 export function buildContext(input: {
@@ -64,6 +72,7 @@ export function buildContext(input: {
     countries: input.countries ?? new Map(),
     cast: input.cast ?? new Map(),
     byKey: new Map(rated.map((r) => [r.filmKey, r] as const)),
+    joined: input.joined,
   };
 }
 

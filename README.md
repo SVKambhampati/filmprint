@@ -26,9 +26,9 @@ Early. What exists today is the foundation, not the site:
 | Dataset generator CLI | done — **98.6% match rate on a real 1,889-film export** |
 | Live matcher check (`npm run check:matcher`) | 22/22 against real TMDB |
 | Stat registry + page selector | done, tested |
-| 11 of 28 stats implemented | done, tested |
+| 13 of 28 stats implemented | done, tested |
 | Page composition (`composePage`) | done, tested |
-| Remaining 14 declared stats | 12 declared, 2 blocked |
+| Remaining stats | 7 declared, 3 blocked |
 | Web UI | not started |
 
 ## Getting started
@@ -51,7 +51,7 @@ you match 70% of a real library then every chart downstream is wrong and no
 amount of design fixes it.
 
 ```bash
-npm test               # 141 tests, no network
+npm test               # 154 tests, no network
 npm run typecheck
 npm run check:matcher  # 22 live cases against real TMDB (~23 API calls)
 npm run build:dataset -- --report    # store contents + top unmatched, no network
@@ -142,6 +142,20 @@ verdict per language above a minimum sample, headlining a divergence when the
 groups disagree. When a language cannot be evaluated at all, that is stated rather
 than averaged over. The durable fix is a reference distribution built from
 consenting users, which is the same corpus a fitted calibration curve needs.
+
+**Watchlist conversion is not computable, and this was verified.** The original
+design ranked "watchlist half-life" — survival analysis on time from added to
+watched — as a hero stat and called it one of the most robust available. It is
+impossible from a single export. Letterboxd removes a film from the watchlist
+when you log it, and the export contains only the *current* watchlist, so every
+converted film has left the file and the diary keeps no record of when it was
+added. Checked against a real export: **zero overlap** between watchlist and
+watched, by film id and by (name, year). Kaplan-Meier would see no events at all.
+
+What survives is an age list — how long the remaining films have sat — which is
+what people screenshot anyway. Unreleased films are excluded: a film added in
+2025 that opens in 2028 is a wishlist entry, and counting it as neglect is simply
+wrong. On the test export 20 of 21 watchlist films were unreleased.
 
 ## Known gaps
 

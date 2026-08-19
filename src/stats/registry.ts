@@ -36,6 +36,8 @@ export type SampleMetric =
   /** Diary entries safe for temporal stats: plausible lag, no bulk import, no placeholder date. */
   | "nCleanDated"
   | "nWatchlist"
+  /** Watchlist films already released. The unreleased ones are a wishlist, not a backlog. */
+  | "nWatchlistReleased"
   /** Diary entries flagged as rewatches. A lower bound — the flag is user-maintained. */
   | "nRewatchEntries"
   /** Films logged BOTH as a first watch and a rewatch, inside the usable rating band. */
@@ -131,16 +133,23 @@ export const STATS: readonly StatDefinition[] = [
       "the era of films you chose to log and rate highly — not quality by era.",
   },
   {
-    id: "watchlist-half-life",
-    name: "Watchlist half-life",
+    id: "watchlist-graveyard",
+    name: "Your watchlist graveyard",
     category: "behaviour",
-    revealing: 5,
+    revealing: 4,
     shareable: 5,
     tone: "unflattering",
-    requires: [{ metric: "nWatchlist", min: 25 }],
+    // Only released films. An unreleased film on a watchlist is a wishlist entry,
+    // not a backlog entry, and counting it as neglect is simply wrong.
+    requires: [{ metric: "nWatchlistReleased", min: 10 }],
     caveat:
-      "Films you added and deleted without watching appear nowhere in the export, " +
-      "so if you purge your watchlist this conversion rate is overstated.",
+      "This is an AGE list, not a conversion rate. Letterboxd removes a film from " +
+      "your watchlist when you log it, and the export holds only the current " +
+      "watchlist, so a film that went from watchlist to watched leaves no trace of " +
+      "when it was added. Time-to-watch and conversion rate are not computable " +
+      "from one export -- verified against a real one: zero overlap between " +
+      "watchlist and watched. Films added and then deleted unwatched are also " +
+      "invisible, so a purger's list looks healthier than it was.",
   },
   {
     id: "invisible-signature",
@@ -200,7 +209,7 @@ export const STATS: readonly StatDefinition[] = [
   },
   {
     id: "the-45-barrier",
-    name: "What separates your 5s from your 4.5s",
+    name: "What separates your top two ratings",
     category: "rating-behaviour",
     revealing: 4,
     shareable: 4,
@@ -208,7 +217,10 @@ export const STATS: readonly StatDefinition[] = [
     requires: [{ metric: "nRated", min: G.perPerson }],
     caveat:
       "A fishing expedition by design. The winning gap must survive a permutation " +
-      "test; if nothing does, say so — 'the difference is mood' is the better line.",
+      "test at a Bonferroni-adjusted threshold; if nothing does, say so — 'the " +
+      "difference is mood' is the better line. Compares the top two POPULATED " +
+      "rating values rather than hardcoding 5 vs 4.5, because a user with no 5s " +
+      "would otherwise never see this at all.",
   },
   {
     id: "rewatch-delta",

@@ -131,14 +131,17 @@ test("a rating-first backlogger gets a full page from taste stats alone", () => 
   const sel = selectStats(
     profile({
       nRated: 1868, nWatched: 1868, nDistinctFilms: 1889, nRatedWithCrowd: 1600,
-      nDiary: 100, nCleanDated: 79, nWatchlist: 21, nRewatchEntries: 34, nTaggedEntries: 0,
+      nDiary: 100, nCleanDated: 79, nWatchlist: 21, nWatchlistReleased: 3,
+      nRewatchEntries: 34, nTaggedEntries: 0,
     }),
   );
   assert.ok(sel.hero.length >= 5, `expected a full hero row, got ${sel.hero.length}`);
   // The date-starved stats must be gated, not rendered on 79 entries.
   const gatedIds = new Set(sel.gated.map((g) => g.def.id));
   assert.ok(gatedIds.has("log-lag"), "lag needs 100 clean-dated");
-  assert.ok(gatedIds.has("watchlist-half-life"), "half-life needs 25 watchlist entries");
+  // Renamed from watchlist-half-life: time-to-watch is not computable from an
+  // export, so the stat is an age list gated on RELEASED watchlist films.
+  assert.ok(gatedIds.has("watchlist-graveyard"), "the graveyard needs released watchlist films");
 });
 
 test("a diary-first logger gets a different page than a rating-first one", () => {
